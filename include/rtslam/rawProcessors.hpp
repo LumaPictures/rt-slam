@@ -112,6 +112,11 @@ namespace rtslam {
 				featPtr->measurement.std(params.measStd);
 				if (detector.detectIn(*(rawData->img.get()), featPtr, &roi))
 				{
+					// Check to make sure the input image is monochrome
+					// (otherwise we will overrun the allocated memory, and get
+					// segfaults)
+					if (rawData->img->channels() > 1) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "Non-grayscale image used as input");
+
 					// extract appearance
 					vec pix = featPtr->measurement.x();
 					boost::shared_ptr<AppearanceImagePoint> appPtr = SPTR_CAST<AppearanceImagePoint>(featPtr->appearancePtr);
