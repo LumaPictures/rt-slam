@@ -15,7 +15,7 @@ build_jafar_module(rtslam
 #  REQUIRED_MODULES kernel image jmath correl qdisplay gdhe
 
   REQUIRED_EXTLIBS boost_thread boost_system boost_filesystem boost_regex
-  OPTIONAL_EXTLIBS qt4 viam MTI posterLib ueye
+  OPTIONAL_EXTLIBS qt4 viam MTI posterLib ueye OpenSceneGraph
 # for robotpkg generation:
 #  REQUIRED_EXTLIBS boost_thread boost_system boost_filesystem boost_regex gdhe qt4 viam MTI posterLib opencv
 

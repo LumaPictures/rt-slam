@@ -164,6 +164,7 @@
 
 #include "rtslam/display_qt.hpp"
 #include "rtslam/display_gdhe.hpp"
+#include "rtslam/display_osg.hpp"
 
 #include "rtslam/simuRawProcessors.hpp"
 #include "rtslam/hardwareSensorAdhocSimulator.hpp"
@@ -215,7 +216,7 @@ time_t rseed;
  * program parameters
  * ###########################################################################*/
 
-enum { iDispQt = 0, iDispGdhe, iRenderAll, iReplay, iDump, iRandSeed, iPause, iVerbose, iMap, iRobot, iCamera, iTrigger, iGps, iSimu, iExport, nIntOpts };
+enum { iDispQt = 0, iDispGdhe, iDispOsg, iRenderAll, iReplay, iDump, iRandSeed, iPause, iVerbose, iMap, iRobot, iCamera, iTrigger, iGps, iSimu, iExport, nIntOpts };
 int intOpts[nIntOpts] = {0};
 const int nFirstIntOpt = 0, nLastIntOpt = nIntOpts-1;
 
@@ -238,6 +239,7 @@ struct option long_options[] = {
 	// int options
 	{"disp-2d", 2, 0, 0},
 	{"disp-3d", 2, 0, 0},
+	{"disp-osg", 2, 0, 0},
 	{"render-all", 2, 0, 0},
 	{"replay", 2, 0, 0},
 	{"dump", 2, 0, 0},
@@ -429,6 +431,11 @@ display::ViewerQt *viewerQt = NULL;
 #ifdef HAVE_MODULE_GDHE
 display::ViewerGdhe *viewerGdhe = NULL;
 #endif
+#ifdef HAVE_DISP_OSG
+display::ViewerOsg *viewerOsg = NULL;
+#endif
+
+
 kernel::VariableCondition<int> rawdata_condition(0);
 
 
@@ -464,6 +471,9 @@ void demo_slam_init()
 	#endif
 	#ifndef HAVE_MODULE_GDHE
 	intOpts[iDispGdhe] = 0;
+	#endif
+	#ifndef HAVE_DISP_OSG
+	intOpts[iDispOsg] = 0;
 	#endif
 
 	if (strOpts[sLog].size() == 1)
@@ -519,6 +529,14 @@ void demo_slam_init()
 		worldPtr->addDisplayViewer(viewerGdhe, display::ViewerGdhe::id());
 	}
 	#endif
+	#ifdef HAVE_DISP_OSG
+	if (intOpts[iDispOsg])
+	{
+		display::ViewerOsg *viewerOsg = new display::ViewerOsg();
+		worldPtr->addDisplayViewer(viewerOsg, display::ViewerOsg::id());
+	}
+	#endif
+
 	
 	vec intrinsic, distortion;
 	int img_width, img_height;
@@ -1527,6 +1545,11 @@ void demo_slam_display(world_ptr_t *world)
 			display::ViewerGdhe *viewerGdhe = NULL;
 			if (intOpts[iDispGdhe]) viewerGdhe = PTR_CAST<display::ViewerGdhe*> ((*world)->getDisplayViewer(display::ViewerGdhe::id()));
 			if (intOpts[iDispGdhe]) viewerGdhe->render();
+			#endif
+			#ifdef HAVE_DISP_OSG
+			display::ViewerOsg *viewerOsg = NULL;
+			if (intOpts[iDispOsg]) viewerOsg = PTR_CAST<display::ViewerOsg*> ((*world)->getDisplayViewer(display::ViewerOsg::id()));
+			if (intOpts[iDispOsg]) viewerOsg->render();
 			#endif
 			
 			if (((intOpts[iReplay] & 1) || intOpts[iSimu]) && intOpts[iDump] && (*world)->display_t+1 != 0)
