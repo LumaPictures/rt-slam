@@ -278,6 +278,8 @@ const int slam_priority = -20; // needs to be started as root to be < 0
 const int display_priority = 10;
 const int display_period = 100; // ms
 const unsigned N_FRAMES = 500000;
+const double UNSET_FREQ = -1.0;
+const double DEFAULT_FREQ = 60.0;
 
 
 class ConfigSetup: public kernel::KeyValueFileSaveLoad
@@ -295,6 +297,7 @@ class ConfigSetup: public kernel::KeyValueFileSaveLoad
 	unsigned IMG_HEIGHT;       /// image height
 	jblas::vec4 INTRINSIC;     /// intrisic calibration parameters (u0,v0,alphaU,alphaV)
 	jblas::vec3 DISTORTION;    /// distortion calibration parameters
+	double FREQ; 			/// The rate (in Hz) that the takes in images (optional)
 
 	/// SIMU SENSOR
 	unsigned IMG_WIDTH_SIMU;
@@ -352,6 +355,9 @@ class ConfigSetup: public kernel::KeyValueFileSaveLoad
 	
  private:
   void processKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile, bool read);
+
+  template<class T>
+  void readKeyValueFileOptionalItem(jafar::kernel::KeyValueFile& keyValueFile, const std::string& key, T& value, const T& defaultVal);
  public:
 	virtual void loadKeyValueFile(jafar::kernel::KeyValueFile const& keyValueFile);
 	virtual void saveKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile);
@@ -490,6 +496,12 @@ void demo_slam_init()
 	configSetup.load(strOpts[sConfigSetup]);
 	configEstimation.load(strOpts[sConfigEstimation]);
 	
+	// set options that may be in the config file or command line
+	if (floatOpts[fFreq] == UNSET_FREQ)
+	{
+		floatOpts[fFreq] = configSetup.FREQ;
+	}
+
 	// deal with the random seed
 	rseed = jmath::get_srand();
 	if (intOpts[iRandSeed] != 0 && intOpts[iRandSeed] != 1)
@@ -1691,7 +1703,7 @@ int main(int argc, char* const* argv)
 	intOpts[iVerbose] = 5;
 	intOpts[iMap] = 1;
 	intOpts[iCamera] = 1;
-	floatOpts[fFreq] = 60.0;
+	floatOpts[fFreq] = UNSET_FREQ;
 	floatOpts[fShutter] = 0.0;
 	strOpts[sDataPath] = ".";
 	strOpts[sConfigSetup] = "#!@";
@@ -1756,6 +1768,8 @@ int main(int argc, char* const* argv)
 
 #define KeyValueFile_processItem(k) { read ? keyValueFile.getItem(#k, k) : keyValueFile.setItem(#k, k); }
 
+#define KeyValueFile_processOptionalItem(k, defaultVal) { read ? readKeyValueFileOptionalItem(keyValueFile, #k, k, defaultVal) : keyValueFile.setItem(#k, k); }
+
 
 void ConfigSetup::loadKeyValueFile(jafar::kernel::KeyValueFile const& keyValueFile)
 {
@@ -1767,6 +1781,19 @@ void ConfigSetup::saveKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile)
   processKeyValueFile(keyValueFile, false);
 }
 
+template<class T>
+void ConfigSetup::readKeyValueFileOptionalItem(jafar::kernel::KeyValueFile& keyValueFile, std::string const& key, T& value, const T& defaultVal)
+{
+	if (keyValueFile.hasKey(key))
+	{
+		keyValueFile.getItem(key, value);
+	}
+	else
+	{
+		value = defaultVal;
+	}
+}
+
 void ConfigSetup::processKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile, bool read)
 {
 	if (intOpts[iRobot] == 1)
@@ -1776,6 +1803,7 @@ void ConfigSetup::processKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile,
 	if (intOpts[iGps])
 		KeyValueFile_processItem(GPS_POSE);
 	KeyValueFile_processItem(ROBOT_POSE);
+	KeyValueFile_processOptionalItem(FREQ, DEFAULT_FREQ);
 	
 	if (intOpts[iSimu])
 	{
