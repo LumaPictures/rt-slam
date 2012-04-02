@@ -1206,6 +1206,13 @@ void demo_slam_init()
 		viewerGdhe->bufferize(worldPtr);
 	}
 	#endif
+	#ifdef HAVE_DISP_OSG
+	if (intOpts[iDispOsg])
+	{
+		viewerOsg = PTR_CAST<display::ViewerOsg*> (worldPtr->getDisplayViewer(display::ViewerOsg::id()));
+		viewerOsg->bufferize(worldPtr);
+	}
+	#endif
 
 // std::cout << "SLAM: starting slam" << std::endl;
 
@@ -1396,15 +1403,29 @@ int n_innovation = 0;
 			{
 				#ifdef HAVE_MODULE_QDISPLAY
 				display::ViewerQt *viewerQt = NULL;
-				if (intOpts[iDispQt]) viewerQt = PTR_CAST<display::ViewerQt*> ((*world)->getDisplayViewer(display::ViewerQt::id()));
-				if (intOpts[iDispQt]) viewerQt->bufferize(*world);
+				if (intOpts[iDispQt])
+				{
+					viewerQt = PTR_CAST<display::ViewerQt*> ((*world)->getDisplayViewer(display::ViewerQt::id()));
+					viewerQt->bufferize(*world);
+				}
 				#endif
 				#ifdef HAVE_MODULE_GDHE
 				display::ViewerGdhe *viewerGdhe = NULL;
-				if (intOpts[iDispGdhe]) viewerGdhe = PTR_CAST<display::ViewerGdhe*> ((*world)->getDisplayViewer(display::ViewerGdhe::id()));
-				if (intOpts[iDispGdhe]) viewerGdhe->bufferize(*world);
+				if (intOpts[iDispGdhe])
+				{
+					viewerGdhe = PTR_CAST<display::ViewerGdhe*> ((*world)->getDisplayViewer(display::ViewerGdhe::id()));
+					viewerGdhe->bufferize(*world);
+				}
 				#endif
-				
+				#ifdef HAVE_DISP_OSG
+				display::ViewerOsg *viewerOsg = NULL;
+				if (intOpts[iDispOsg])
+				{
+					viewerOsg = PTR_CAST<display::ViewerOsg*> ((*world)->getDisplayViewer(display::ViewerOsg::id()));
+					viewerOsg->bufferize(*world);
+				}
+				#endif
+
 				(*world)->display_t = (*world)->t;
 				(*world)->display_rendered = false;
 				display_lock.unlock();
@@ -1499,15 +1520,29 @@ void demo_slam_display(world_ptr_t *world)
 			{
 				#ifdef HAVE_MODULE_QDISPLAY
 				display::ViewerQt *viewerQt = NULL;
-				if (intOpts[iDispQt]) viewerQt = PTR_CAST<display::ViewerQt*> ((*world)->getDisplayViewer(display::ViewerQt::id()));
-				if (intOpts[iDispQt]) viewerQt->bufferize(*world);
+				if (intOpts[iDispQt])
+				{
+					viewerQt = PTR_CAST<display::ViewerQt*> ((*world)->getDisplayViewer(display::ViewerQt::id()));
+					viewerQt->bufferize(*world);
+				}
 				#endif
 				#ifdef HAVE_MODULE_GDHE
 				display::ViewerGdhe *viewerGdhe = NULL;
-				if (intOpts[iDispGdhe]) viewerGdhe = PTR_CAST<display::ViewerGdhe*> ((*world)->getDisplayViewer(display::ViewerGdhe::id()));
-				if (intOpts[iDispGdhe]) viewerGdhe->bufferize(*world);
+				if (intOpts[iDispGdhe])
+				{
+					viewerGdhe = PTR_CAST<display::ViewerGdhe*> ((*world)->getDisplayViewer(display::ViewerGdhe::id()));
+					viewerGdhe->bufferize(*world);
+				}
 				#endif
-				
+				#ifdef HAVE_DISP_OSG
+				display::ViewerOsg *viewerOsg = NULL;
+				if (intOpts[iDispOsg])
+				{
+					viewerOsg = PTR_CAST<display::ViewerOsg*> ((*world)->getDisplayViewer(display::ViewerOsg::id()));
+					viewerOsg->bufferize(*world);
+				}
+				#endif
+
 				(*world)->display_t = (*world)->t;
 				(*world)->display_rendered = false;
 			}
@@ -1580,6 +1615,8 @@ void demo_slam_display(world_ptr_t *world)
 					viewerGdhe->dump(oss.str());
 				}
 				#endif
+				// TODO: add dump support for osgViewer
+
 //				if (intOpts[iRenderAll])
 //					(*world)->display_mutex.unlock();
 			}
@@ -1630,16 +1667,16 @@ void demo_slam_run() {
 		std::cout << "Please install qdisplay module if you want 2D display" << std::endl;
 		#endif
 	} else
-	if (intOpts[iDispGdhe]) // only 3d
+	if (intOpts[iDispGdhe] || intOpts[iDispOsg]) // only 3d
 	{
-		#ifdef HAVE_MODULE_GDHE
+		#if defined(HAVE_MODULE_GDHE) || defined(HAVE_DISP_OSG)
 		kernel::setCurrentThreadPriority(display_priority);
 		boost::thread *thread_disp = new boost::thread(boost::bind(demo_slam_display,&worldPtr));
 		kernel::setCurrentThreadPriority(slam_priority);
 		demo_slam_main(&worldPtr);
 		delete thread_disp;
 		#else
-		std::cout << "Please install gdhe module if you want 3D display" << std::endl;
+		std::cout << "Please install gdhe module or OpenSceneGraph if you want 3D display" << std::endl;
 		#endif
 	} else // none
 	{

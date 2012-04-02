@@ -36,70 +36,90 @@ namespace display {
 		public:
 			typedef Viewer<WorldOsg,MapOsg,RobotOsg,SensorOsg,LandmarkOsg,ObservationOsg,boost::variant<int*> > BaseViewerClass;
 
-			// some configuration parameters
-			ViewerOsg();
-			void render();
+		public:
+			double ellipsesScale;
 
 		protected:
 			osg::ref_ptr<osgViewer::Viewer> _viewer;
-	};
 
+		public:
+			// some configuration parameters
+			ViewerOsg(double _ellipsesScale = 3.0);
+			void render();
+	};
 
 	class WorldOsg : public WorldDisplay
 	{
+		protected:
 			ViewerOsg *viewerOsg;
 		public:
-			WorldOsg(ViewerAbstract *_viewer, rtslam::WorldAbstract *_slamWor, WorldDisplay *garbage):
-				WorldDisplay(_viewer, _slamWor, garbage), viewerOsg(PTR_CAST<ViewerOsg*>(_viewer)) {}			void bufferize() {}
+			WorldOsg(ViewerAbstract *_viewer, rtslam::WorldAbstract *_slamWor, WorldDisplay *garbage);
+			void bufferize() {}
 			void render() {}
 	};
 
+
+
 	class MapOsg : public MapDisplay
 	{
+		protected:
+			// bufferized data
+			jblas::vec poseQuat;
+			// osg objects
 			ViewerOsg *viewerOsg;
 		public:
-			MapOsg(ViewerAbstract *_viewer, rtslam::MapAbstract *_slamMap, WorldOsg *_dispWorld):
-				MapDisplay(_viewer, _slamMap, _dispWorld), viewerOsg(PTR_CAST<ViewerOsg*>(_viewer)) {}
-			void bufferize() {}
+			MapOsg(ViewerAbstract *_viewer, rtslam::MapAbstract *_slamMap, WorldOsg *_dispWorld);
+			void bufferize();
 			void render() {}
 	};
 
 	class RobotOsg : public RobotDisplay
 	{
+		protected:
+			// bufferized data
+			jblas::vec poseQuat;
+			jblas::sym_mat poseQuatUncert;
+			// osg objects
 			ViewerOsg *viewerOsg;
 		public:
-			RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap):
-				RobotDisplay(_viewer, _slamRob, _dispMap), viewerOsg(PTR_CAST<ViewerOsg*>(_viewer)) {}
-			void bufferize() {}
+			RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap);
+			void bufferize();
 			void render() {}
 	};
 
 	class SensorOsg : public SensorDisplay
 	{
+		protected:
 			ViewerOsg *viewerOsg;
 		public:
-			SensorOsg(ViewerAbstract *_viewer, rtslam::SensorExteroAbstract *_slamSen, RobotOsg *_dispRob):
-				SensorDisplay(_viewer, _slamSen, _dispRob), viewerOsg(PTR_CAST<ViewerOsg*>(_viewer)) {}
+			SensorOsg(ViewerAbstract *_viewer, rtslam::SensorExteroAbstract *_slamSen, RobotOsg *_dispRob);
 			void bufferize() {}
 			void render() {}
 	};
 
 	class LandmarkOsg : public LandmarkDisplay
 	{
+		protected:
+			// buffered data
+			ObservationAbstract::Events events_;
+			jblas::vec state_;
+			jblas::sym_mat cov_;
+			unsigned int id_;
+			LandmarkAbstract::type_enum lmkType_;
+			// osg objects
 			ViewerOsg *viewerOsg;
 		public:
-			LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap):
-				LandmarkDisplay(_viewer, _slamLmk, _dispMap), viewerOsg(PTR_CAST<ViewerOsg*>(_viewer)) {}
-			void bufferize() {}
+			LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap);
+			void bufferize();
 			void render() {}
 	};
 
 	class ObservationOsg : public ObservationDisplay
 	{
+		protected:
 			ViewerOsg *viewerOsg;
 		public:
-			ObservationOsg(ViewerAbstract *_viewer, rtslam::ObservationAbstract *_slamObs, SensorOsg *_dispSen):
-				ObservationDisplay(_viewer, _slamObs, _dispSen), viewerOsg(PTR_CAST<ViewerOsg*>(_viewer)) {}
+			ObservationOsg(ViewerAbstract *_viewer, rtslam::ObservationAbstract *_slamObs, SensorOsg *_dispSen);
 			void bufferize() {}
 			void render() {}
 	};
