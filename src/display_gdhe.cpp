@@ -154,24 +154,11 @@ JFR_DEBUG("robot EULER: " << uncertEuler);*/
 	
 	void LandmarkGdhe::bufferize()
 	{
-		uchar *events = (uchar*)&events_;
-		memset(events, 0, sizeof(ObservationAbstract::Events));
+		events_.clear();
 		for(LandmarkAbstract::ObservationList::iterator obs = slamLmk_->observationList().begin(); obs != slamLmk_->observationList().end(); ++obs)
 		{
-			uchar *obsevents = (uchar*)&((*obs)->events);
-			for(size_t i = 0; i < sizeof(ObservationAbstract::Events); i++) events[i] |= obsevents[i];
+			events_ |= (*obs)->events;
 		}
-/*		
-		events_.predicted_ = events_.visible_ = events_.measured_ = events_.matched_ = events_.updated_ = false;
-		for(LandmarkAbstract::ObservationList::iterator obs = slamLmk_->observationList().begin(); obs != slamLmk_->observationList().end(); ++obs)
-		{
-			events_.predicted |= (*obs)->events.predicted;
-			events_.visible |= (*obs)->events.visible;
-			events_.measured |= (*obs)->events.measured;
-			events_.matched |= (*obs)->events.matched;
-			events_.updated |= (*obs)->events.updated;
-		}
-*/		
 		state_ = slamLmk_->state.x();
 		cov_ = slamLmk_->state.P();
 	}

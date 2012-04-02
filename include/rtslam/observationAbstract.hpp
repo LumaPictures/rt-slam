@@ -217,6 +217,59 @@ namespace jafar {
 						bool measured;     ///< Feature is measured (we tried to match it)
 						bool matched;      ///< Feature is successfully matched
 						bool updated;      ///< Landmark is updated
+
+						// Allow clearing, and bitwise and / or
+
+						// The following methods do some magic with converting to uchar*
+						// - they are written this way so that one can freely add / remove
+						// data members without having to change any other code
+						void clear()
+						{
+							uchar *events = (uchar*)this;
+							memset(events, 0, sizeof(Events));
+
+							/*
+							predicted = 0;
+							visible = 0;
+							measured = 0;
+							matched = 0;
+							updated = 0;
+							*/
+						}
+
+						Events& operator|=(const Events& right)
+						{
+							uchar *events = (uchar*)this;
+							uchar *rightEvents = (uchar*)&(right);
+							for(size_t i = 0; i < sizeof(Events); i++) events[i] |= rightEvents[i];
+							/*
+							predicted |= right.events.predicted;
+							visible |= right.events.visible;
+							measured |= right.events.measured;
+							matched |= right.events.matched;
+							updated |= right.events.updated;
+							*/
+							return *this;
+						}
+
+						Events& operator&=(const Events& right)
+						{
+							uchar *events = (uchar*)this;
+							uchar *rightEvents = (uchar*)&(right);
+							for(size_t i = 0; i < sizeof(Events); i++) events[i] &= rightEvents[i];
+							return *this;
+						}
+
+						const Events operator|(const Events& other) const
+						{
+							return Events(*this) |= other;
+						}
+
+						const Events operator&(const Events& other) const
+						{
+							return Events(*this) &= other;
+						}
+
 				} events;
 				
 				/**
