@@ -102,14 +102,11 @@ namespace display {
 //
 	void LandmarkOsg::bufferize()
 	{
-		uchar *events = (uchar*)&events_;
-		memset(events, 0, sizeof(ObservationAbstract::Events));
+		events_.clear();
 		for(LandmarkAbstract::ObservationList::iterator obs = slamLmk_->observationList().begin(); obs != slamLmk_->observationList().end(); ++obs)
 		{
-			uchar *obsevents = (uchar*)&((*obs)->events);
-			for(size_t i = 0; i < sizeof(ObservationAbstract::Events); i++) events[i] |= obsevents[i];
+			events_ |= (*obs)->events;
 		}
-
 		state_ = slamLmk_->state.x();
 		cov_ = slamLmk_->state.P();
 	}
