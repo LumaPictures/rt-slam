@@ -38,14 +38,18 @@ namespace display {
 
 		public:
 			double ellipsesScale;
+			static const double DEFAULT_ELLIPSES_SCALE;
 
 		protected:
 			osg::ref_ptr<osgViewer::Viewer> _viewer;
+		private:
+			osg::ref_ptr<osg::Group> _root;
 
 		public:
 			// some configuration parameters
-			ViewerOsg(double _ellipsesScale = 3.0);
+			ViewerOsg(double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
 			void render();
+			osg::ref_ptr<osg::Group> root();
 	};
 
 	class WorldOsg : public WorldDisplay
@@ -107,11 +111,12 @@ namespace display {
 			unsigned int id_;
 			LandmarkAbstract::type_enum lmkType_;
 			// osg objects
+			osg::ref_ptr<osg::Group> group;
 			ViewerOsg *viewerOsg;
 		public:
 			LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap);
 			void bufferize();
-			void render() {}
+			void render();
 	};
 
 	class ObservationOsg : public ObservationDisplay
