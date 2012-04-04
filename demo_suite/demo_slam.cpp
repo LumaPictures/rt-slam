@@ -1567,7 +1567,22 @@ void demo_slam_display(world_ptr_t *world)
 				QApplication::instance()->processEvents();
 				display_lock.lock();
 			}
-			if ((*world)->display_rendered) break;
+			if ((*world)->display_rendered)
+			{
+				// TODO: implement main OSG loop in separate thread, and
+				//       get rid of this!
+				// Ugly hack - want to be able to interact with the OSG
+				// display even after finished with slam...
+				#ifdef HAVE_DISP_OSG
+				if (intOpts[iDispOsg])
+				{
+					display::ViewerOsg *viewerOsg = NULL;
+					viewerOsg = PTR_CAST<display::ViewerOsg*> ((*world)->getDisplayViewer(display::ViewerOsg::id()));
+					viewerOsg->render();
+				}
+				#endif
+			}
+
 			#endif
 		}
 		display_lock.unlock();

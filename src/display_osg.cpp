@@ -22,7 +22,7 @@ namespace display {
 
 	using namespace osg;
 
-	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 0.01;
+	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 0.03;
 
 	ViewerOsg::ViewerOsg(double _ellipsesScale):
 			ellipsesScale(_ellipsesScale)
