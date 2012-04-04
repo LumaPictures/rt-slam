@@ -12,7 +12,6 @@
 #include <osgGA/TrackballManipulator>
 #include <osg/Geode>
 #include <osg/ShapeDrawable>
-#include <osg/PositionAttitudeTransform>
 
 #ifdef HAVE_OSG
 
@@ -115,11 +114,23 @@ namespace display {
 		viewerOsg->root()->addChild(group);
 	}
 
-//	LandmarkOsg::~LandmarkOsg()
-//	{
-//	}
-//
-//
+	LandmarkOsg::~LandmarkOsg()
+	{
+		viewerOsg->root()->removeChild(group);
+	}
+
+
+
+	unsigned int LandmarkOsg::numShapes()
+	{
+		return group->getNumChildren();
+	}
+
+	void LandmarkOsg::clearShapes()
+	{
+		group->removeChildren(0, group->getNumChildren());
+	}
+
 	void LandmarkOsg::bufferize()
 	{
 		events_.clear();
@@ -131,31 +142,60 @@ namespace display {
 		cov_ = slamLmk_->state.P();
 	}
 
+	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform, float r, float g, float b)
+	{
+		ref_ptr<ShapeDrawable> shape;
+		shape = static_cast<ShapeDrawable*>(transform->getChild(0)->asGeode()->getDrawable(0));
+		shape->setColor(Vec4f(r, g, b, 1.0));
+	}
+
+	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform, colorRGB color)
+	{
+		setColor(transform, color.R, color.G, color.B);
+	}
+
+	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform)
+	{
+		setColor(transform, getColor());
+	}
+
+	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeSphere()
+	{
+		ref_ptr<PositionAttitudeTransform> sphere;
+
+		sphere = new PositionAttitudeTransform;
+		sphere->setDataVariance(Object::DYNAMIC);
+		group->addChild(sphere);
+		ref_ptr<Geode> geode = new Geode;
+		geode->setDataVariance(Object::DYNAMIC);
+		sphere->addChild(geode);
+		ShapeDrawable* sphereShape = new ShapeDrawable(new Sphere(Vec3(0,0,0), viewerOsg->ellipsesScale));
+		geode->addDrawable(sphereShape);
+		return sphere;
+	}
+
+	colorRGB LandmarkOsg::getColor()
+	{
+		colorRGB c;
+		c.set(255,255,255);
+		c = getColorRGB(ColorManager::getColorObject_prediction(phase_,events_));
+		return c;
+	}
+
+
 	void LandmarkOsg::render()
 	{
 		switch (lmkType_)
 		{
 			case LandmarkAbstract::PNT_EUC:
-			case LandmarkAbstract::PNT_AH:
 			{
 				ref_ptr<PositionAttitudeTransform> sphere;
-				ref_ptr<ShapeDrawable> sphereShape;
 
 				// Build display objects if it is the first time they are displayed
-				if (group->getNumChildren() != 1)
+				if (numShapes() != 1)
 				{
-					// clear
-					group->removeChildren(0, group->getNumChildren());
-
-					// sphere
-					sphere = new PositionAttitudeTransform;
-					sphere->setDataVariance(Object::DYNAMIC);
-					group->addChild(sphere);
-					ref_ptr<Geode> geode = new Geode;
-					geode->setDataVariance(Object::DYNAMIC);
-					sphere->addChild(geode);
-					sphereShape = new ShapeDrawable(new Sphere(Vec3(0,0,0), viewerOsg->ellipsesScale));
-					geode->addDrawable(sphereShape);
+					clearShapes();
+					sphere = makeSphere();
 
 //					// ellipsoid
 //					gdhe::Ellipsoid *ell = new gdhe::Ellipsoid(12);
@@ -166,16 +206,12 @@ namespace display {
 				else
 				{
 					sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
-					sphereShape = static_cast<ShapeDrawable*>(sphere->getChild(0)->asGeode()->getDrawable(0));
 				}
 
 				// Refresh the display objects every time
 				{
-					colorRGB c; c.set(255,255,255);
-
 					// sphere
-					c = getColorRGB(ColorManager::getColorObject_prediction(phase_,events_)) ;
-					sphereShape->setColor(Vec4f(c.R,c.G,c.B,1.0));
+					setColor(sphere);
 					sphere->setPosition(Vec3d(state_[0], state_[1], state_[2]));
 //					(*it)->setPose(position(0), position(1), position(2), 0, 0, 0);
 //					(*it)->setLabelColor(c.R,c.G,c.B);
@@ -194,20 +230,19 @@ namespace display {
 				}
 				break;
 			}
-//			case LandmarkAbstract::PNT_AH:
-//			{
-//				// Build display objects if it is the first time they are displayed
-//				if (items_.size() != 2)
-//				{
-//					// clear
-//					items_.clear();
-//
-///*					// sphere
-//					gdhe::Sphere *sph = new gdhe::Sphere(sph_radius, 12);
-//					sph->setLabel("");
-//					items_.push_back(sph);
-//					viewerGdhe->client.addObject(sph, false);
-//*/
+			case LandmarkAbstract::PNT_AH:
+			{
+				ref_ptr<PositionAttitudeTransform> sphere;
+
+				// Build display objects if it is the first time they are displayed
+				if (numShapes() != 2)
+				{
+					clearShapes();
+					sphere = makeSphere();
+
+					// dummy segment;
+					makeSphere();
+
 //					// ellipsoid
 //					gdhe::Ellipsoid *ell = new gdhe::Ellipsoid(12);
 //					ell->setLabel("");
@@ -218,23 +253,21 @@ namespace display {
 //					gdhe::Polyline *seg = new gdhe::Polyline();
 //					items_.push_back(seg);
 //					viewerGdhe->client.addObject(seg, false);
-//				}
-//				// Refresh the display objects every time
-//				{
-//					colorRGB c; c.set(255,255,255);
-///*
-//					// sphere
-//					ItemList::iterator it = items_.begin();
-//					gdhe::Sphere *sph = PTR_CAST<gdhe::Sphere*>(*it);
-//					sph->setRadius(sph_radius);
-//					c = getColorRGB(ColorManager::getColorObject_prediction(phase_,events_)) ;
-//					(*it)->setColor(c.R,c.G,c.B); //
-//					jblas::vec3 position = lmkAHP::ahp2euc(state_);
-//					(*it)->setPose(position(0), position(1), position(2), 0, 0, 0);
-//					(*it)->setLabelColor(c.R,c.G,c.B);
-//					(*it)->setLabel(jmath::toStr(id_));
-//					(*it)->refresh();
-//					*/
+				}
+				else
+				{
+					sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+				}
+
+				// Refresh the display objects every time
+				{
+					colorRGB c; c.set(255,255,255);
+
+					// sphere
+					setColor(sphere);
+					jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
+					sphere->setPosition(Vec3d(xNew[0], xNew[1], xNew[2]));
+
 //					// ellipsoid
 //					ItemList::iterator it = items_.begin();
 //					gdhe::Ellipsoid *ell = PTR_CAST<gdhe::Ellipsoid*>(*it);
@@ -265,9 +298,9 @@ namespace display {
 //					(*it)->setColor(c.R,c.G,c.B);
 //					(*it)->setPose(position(0), position(1), position(2), 0, 0, 0);
 //					(*it)->refresh();
-//				}
-//				break;
-//         }
+				}
+				break;
+         }
          case LandmarkAbstract::LINE_AHPL:
          {
 //            // Build display objects if it is the first time they are displayed

@@ -16,6 +16,7 @@
 #define HAVE_DISP_OSG
 
 #include <osgViewer/Viewer>
+#include <osg/PositionAttitudeTransform>
 
 #include "rtslam/display.hpp"
 
@@ -115,8 +116,19 @@ namespace display {
 			ViewerOsg *viewerOsg;
 		public:
 			LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap);
+			~LandmarkOsg();
 			void bufferize();
 			void render();
+
+		protected:
+			// Some utility functions
+			inline unsigned int numShapes();
+			inline void clearShapes();
+			inline colorRGB getColor();
+			inline void setColor(osg::ref_ptr<osg::Group> transform, float r, float g, float b);
+			inline void setColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
+			inline void setColor(osg::ref_ptr<osg::Group> transform);
+			osg::ref_ptr<osg::PositionAttitudeTransform> makeSphere();
 	};
 
 	class ObservationOsg : public ObservationDisplay
