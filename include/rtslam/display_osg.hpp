@@ -125,10 +125,10 @@ namespace display {
 			inline unsigned int numShapes();
 			inline void clearShapes();
 			inline colorRGB getColor();
-			inline void setColor(osg::ref_ptr<osg::Group> transform, float r, float g, float b);
+			inline void setColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b);
 			inline void setColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
-			inline void setColor(osg::ref_ptr<osg::Group> transform);
 			osg::ref_ptr<osg::PositionAttitudeTransform> makeSphere();
+			osg::ref_ptr<osg::PositionAttitudeTransform> makeLine();
 	};
 
 	class ObservationOsg : public ObservationDisplay

@@ -4,33 +4,34 @@
  * \author croussil
  * \ingroup rtslam
  */
-
 #include "rtslam/display_osg.hpp"
-#include "rtslam/ahpTools.hpp"
+
+#ifdef HAVE_OSG
+
+#include <cmath>
 
 #include <osgDB/ReadFile>
 #include <osgGA/TrackballManipulator>
 #include <osg/Geode>
 #include <osg/ShapeDrawable>
 
-#ifdef HAVE_OSG
+#include "rtslam/ahpTools.hpp"
 
 namespace jafar {
 namespace rtslam {
 namespace display {
 
-	using namespace osg;
 
-	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 0.03;
+	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
 
 	ViewerOsg::ViewerOsg(double _ellipsesScale):
 			ellipsesScale(_ellipsesScale)
 	{
 		// load the scene.
-		_root = new Group;
-		_root->setDataVariance(Object::DYNAMIC);
-//		//ref_ptr<Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
-//		ref_ptr<Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
+		_root = new osg::Group;
+		_root->setDataVariance(osg::Object::DYNAMIC);
+//		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
+		osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
 //		if (loadedModel) _root->addChild(loadedModel);
 		_viewer = new osgViewer::Viewer;
 		_viewer->setCameraManipulator( new osgGA::TrackballManipulator );
@@ -44,7 +45,7 @@ namespace display {
 		_viewer->frame();
 	}
 
-	ref_ptr<Group> ViewerOsg::root()
+	osg::ref_ptr<osg::Group> ViewerOsg::root()
 	{
 		return _root;
 	}
@@ -109,8 +110,8 @@ namespace display {
 		lmkType_ = _slamLmk->type;
 		state_.resize(_slamLmk->state.x().size());
 		cov_.resize(_slamLmk->state.P().size1(),_slamLmk->state.P().size2());
-		group = new Group;
-		group->setDataVariance(Object::DYNAMIC);
+		group = new osg::Group;
+		group->setDataVariance(osg::Object::DYNAMIC);
 		viewerOsg->root()->addChild(group);
 	}
 
@@ -118,8 +119,6 @@ namespace display {
 	{
 		viewerOsg->root()->removeChild(group);
 	}
-
-
 
 	unsigned int LandmarkOsg::numShapes()
 	{
@@ -142,11 +141,11 @@ namespace display {
 		cov_ = slamLmk_->state.P();
 	}
 
-	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform, float r, float g, float b)
+	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b)
 	{
-		ref_ptr<ShapeDrawable> shape;
-		shape = static_cast<ShapeDrawable*>(transform->getChild(0)->asGeode()->getDrawable(0));
-		shape->setColor(Vec4f(r, g, b, 1.0));
+		osg::ShapeDrawable* shape;
+		shape = static_cast<osg::ShapeDrawable*>(transform->getChild(0)->asGeode()->getDrawable(0));
+		shape->setColor(osg::Vec4d(r, g, b, 1.0));
 	}
 
 	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform, colorRGB color)
@@ -154,24 +153,45 @@ namespace display {
 		setColor(transform, color.R, color.G, color.B);
 	}
 
-	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform)
-	{
-		setColor(transform, getColor());
-	}
-
 	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeSphere()
 	{
-		ref_ptr<PositionAttitudeTransform> sphere;
+		osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
 
-		sphere = new PositionAttitudeTransform;
-		sphere->setDataVariance(Object::DYNAMIC);
+		sphere = new osg::PositionAttitudeTransform;
+		sphere->setDataVariance(osg::Object::DYNAMIC);
 		group->addChild(sphere);
-		ref_ptr<Geode> geode = new Geode;
-		geode->setDataVariance(Object::DYNAMIC);
+		osg::Geode* geode = new osg::Geode;
+		geode->setDataVariance(osg::Object::DYNAMIC);
 		sphere->addChild(geode);
-		ShapeDrawable* sphereShape = new ShapeDrawable(new Sphere(Vec3(0,0,0), viewerOsg->ellipsesScale));
+		// FIXME: figure out proper way to set sphere scale
+		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), viewerOsg->ellipsesScale/100.0));
 		geode->addDrawable(sphereShape);
 		return sphere;
+	}
+
+	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeLine()
+	{
+	   osg::ref_ptr<osg::PositionAttitudeTransform> line;
+	   line = new osg::PositionAttitudeTransform;
+	   line->setDataVariance(osg::Object::DYNAMIC);
+	   group->addChild(line);
+	   osg::Geode* geode = new osg::Geode();
+	   geode->setDataVariance(osg::Object::DYNAMIC);
+	   line->addChild(geode);
+	   osg::Geometry* geometry = new osg::Geometry();
+	   geometry->setDataVariance(osg::Object::DYNAMIC);
+	   // Because we'll be updating positions...
+	   geometry->setUseVertexBufferObjects(true);
+	   geode->addDrawable(geometry);
+	   osg::Vec3dArray* verts = new osg::Vec3dArray;
+	   verts->push_back( osg::Vec3d( 0, 0, 0) );
+	   verts->push_back( osg::Vec3d( 0, 0, 0) );
+	   geometry->setVertexArray( verts );
+	   osg::DrawElementsUInt* linePrimative = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
+	   linePrimative->push_back(0);
+	   linePrimative->push_back(1);
+	   geometry->addPrimitiveSet(linePrimative);
+	   return line;
 	}
 
 	colorRGB LandmarkOsg::getColor()
@@ -185,11 +205,13 @@ namespace display {
 
 	void LandmarkOsg::render()
 	{
+		colorRGB color = getColor();
+
 		switch (lmkType_)
 		{
 			case LandmarkAbstract::PNT_EUC:
 			{
-				ref_ptr<PositionAttitudeTransform> sphere;
+				osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
 
 				// Build display objects if it is the first time they are displayed
 				if (numShapes() != 1)
@@ -211,8 +233,8 @@ namespace display {
 				// Refresh the display objects every time
 				{
 					// sphere
-					setColor(sphere);
-					sphere->setPosition(Vec3d(state_[0], state_[1], state_[2]));
+					setColor(sphere, color);
+					sphere->setPosition(osg::Vec3d(state_[0], state_[1], state_[2]));
 //					(*it)->setPose(position(0), position(1), position(2), 0, 0, 0);
 //					(*it)->setLabelColor(c.R,c.G,c.B);
 //					(*it)->setLabel(jmath::toStr(id_));
@@ -232,16 +254,15 @@ namespace display {
 			}
 			case LandmarkAbstract::PNT_AH:
 			{
-				ref_ptr<PositionAttitudeTransform> sphere;
+				osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
+				osg::ref_ptr<osg::PositionAttitudeTransform> line;
 
 				// Build display objects if it is the first time they are displayed
 				if (numShapes() != 2)
 				{
 					clearShapes();
 					sphere = makeSphere();
-
-					// dummy segment;
-					makeSphere();
+					line = makeLine();
 
 //					// ellipsoid
 //					gdhe::Ellipsoid *ell = new gdhe::Ellipsoid(12);
@@ -257,16 +278,36 @@ namespace display {
 				else
 				{
 					sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+					line = group->getChild(1)->asTransform()->asPositionAttitudeTransform();
 				}
 
 				// Refresh the display objects every time
 				{
-					colorRGB c; c.set(255,255,255);
-
 					// sphere
-					setColor(sphere);
+					setColor(sphere, color);
 					jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
-					sphere->setPosition(Vec3d(xNew[0], xNew[1], xNew[2]));
+					sphere->setPosition(osg::Vec3d(xNew[0], xNew[1], xNew[2]));
+
+					// segment
+					osg::Geometry* lineGeo = line->getChild(0)->asGeode()->getDrawable(0)->asGeometry();
+					osg::Vec3dArray* verts = dynamic_cast<osg::Vec3dArray*>(lineGeo->getVertexArray());
+
+					// FIXME: figure out proper scaling
+					//double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
+					//double id_std = sqrt(cov_(6,6));
+					double id_std = sqrt(cov_(6,6))/viewerOsg->ellipsesScale;
+					jblas::vec3 position = lmkAHP::ahp2euc(state_);
+					jblas::vec7 state = state_;
+					state(6) = state_(6) - id_std; if (state(6) < 1e-4) state(6) = 1e-4;
+					jblas::vec3 positionExt = lmkAHP::ahp2euc(state);
+					jblas::vec3 p1 = positionExt - position;
+					state(6) = state_(6) + id_std;
+					positionExt = lmkAHP::ahp2euc(state);
+					jblas::vec3 p2 = positionExt - position;
+
+					(*verts)[0] = osg::Vec3d(p1[0], p1[1], p1[2]);
+					(*verts)[1] = osg::Vec3d(p2[0], p2[1], p2[2]);
+					line->setPosition(osg::Vec3d(position[0], position[1], position[2]));
 
 //					// ellipsoid
 //					ItemList::iterator it = items_.begin();
