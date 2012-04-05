@@ -53,10 +53,47 @@ namespace display {
 			osg::ref_ptr<osg::Group> root();
 	};
 
-	class WorldOsg : public WorldDisplay
+	class OsgViewerHolder
 	{
-		protected:
-			ViewerOsg *viewerOsg;
+	protected:
+		ViewerOsg *viewerOsg;
+	public:
+		OsgViewerHolder(ViewerAbstract *_viewer):
+			viewerOsg(PTR_CAST<ViewerOsg*>(_viewer))
+		{}
+	};
+
+	class OsgGroupHolder : public OsgViewerHolder
+	{
+	protected:
+		osg::ref_ptr<osg::Group> group;
+	public:
+		OsgGroupHolder(ViewerAbstract *_viewer):
+			OsgViewerHolder(_viewer)
+		{
+			group = new osg::Group;
+			group->setDataVariance(osg::Object::DYNAMIC);
+			viewerOsg->root()->addChild(group);
+		}
+
+		~OsgGroupHolder()
+			{
+					viewerOsg->root()->removeChild(group);
+			}
+
+			unsigned int numShapes()
+			{
+					return group->getNumChildren();
+			}
+
+			void clearShapes()
+			{
+					group->removeChildren(0, group->getNumChildren());
+			}
+	};
+
+	class WorldOsg : public WorldDisplay, public OsgViewerHolder
+	{
 		public:
 			WorldOsg(ViewerAbstract *_viewer, rtslam::WorldAbstract *_slamWor, WorldDisplay *garbage);
 			void bufferize() {}
@@ -65,44 +102,40 @@ namespace display {
 
 
 
-	class MapOsg : public MapDisplay
+	class MapOsg : public MapDisplay, public OsgViewerHolder
 	{
 		protected:
 			// bufferized data
 			jblas::vec poseQuat;
-			// osg objects
-			ViewerOsg *viewerOsg;
 		public:
 			MapOsg(ViewerAbstract *_viewer, rtslam::MapAbstract *_slamMap, WorldOsg *_dispWorld);
 			void bufferize();
 			void render() {}
 	};
 
-	class RobotOsg : public RobotDisplay
+	class RobotOsg : public RobotDisplay, public OsgGroupHolder
 	{
 		protected:
 			// bufferized data
 			jblas::vec poseQuat;
 			jblas::sym_mat poseQuatUncert;
-			// osg objects
-			ViewerOsg *viewerOsg;
 		public:
 			RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap);
 			void bufferize();
-			void render() {}
+			void render();
+		protected:
+			osg::ref_ptr<osg::PositionAttitudeTransform> makeRobotGeo();
 	};
 
-	class SensorOsg : public SensorDisplay
+	class SensorOsg : public SensorDisplay, public OsgViewerHolder
 	{
-		protected:
-			ViewerOsg *viewerOsg;
 		public:
 			SensorOsg(ViewerAbstract *_viewer, rtslam::SensorExteroAbstract *_slamSen, RobotOsg *_dispRob);
 			void bufferize() {}
 			void render() {}
 	};
 
-	class LandmarkOsg : public LandmarkDisplay
+	class LandmarkOsg : public LandmarkDisplay, public OsgGroupHolder
 	{
 		protected:
 			// buffered data
@@ -111,19 +144,13 @@ namespace display {
 			jblas::sym_mat cov_;
 			unsigned int id_;
 			LandmarkAbstract::type_enum lmkType_;
-			// osg objects
-			osg::ref_ptr<osg::Group> group;
-			ViewerOsg *viewerOsg;
 		public:
 			LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap);
-			~LandmarkOsg();
 			void bufferize();
 			void render();
 
 		protected:
 			// Some utility functions
-			inline unsigned int numShapes();
-			inline void clearShapes();
 			inline colorRGB getColor();
 			inline void setColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b);
 			inline void setColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
@@ -131,10 +158,8 @@ namespace display {
 			osg::ref_ptr<osg::PositionAttitudeTransform> makeLine();
 	};
 
-	class ObservationOsg : public ObservationDisplay
+	class ObservationOsg : public ObservationDisplay, public OsgViewerHolder
 	{
-		protected:
-			ViewerOsg *viewerOsg;
 		public:
 			ObservationOsg(ViewerAbstract *_viewer, rtslam::ObservationAbstract *_slamObs, SensorOsg *_dispSen);
 			void bufferize() {}
