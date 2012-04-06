@@ -285,31 +285,16 @@ namespace display {
 	void RobotOsg::refreshShapes()
 	{
 		osg::PositionAttitudeTransform* geo = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
-//		// convert pose from quat to euler degrees
-//		jblas::vec poseEuler(6);
-//		jblas::vec angleEuler(3);
-//		jblas::sym_mat uncertEuler(3);
-//		ublas::subrange(poseEuler,0,3) = ublas::subrange(poseQuat,0,3);
-//		quaternion::q2e(ublas::subrange(poseQuat,3,7), ublas::project(poseQuatUncert,ublas::range(3,7),ublas::range(3,7)), angleEuler, uncertEuler);
-//		ublas::subrange(poseEuler,3,6) = angleEuler;
-//		//ublas::subrange(poseEuler,3,6) = quaternion::q2e(ublas::subrange(poseQuat,3,7));
-//		for(int i = 3; i < 6; ++i) poseEuler(i) = jmath::radToDeg(poseEuler(i));
-//		std::swap(poseEuler(3), poseEuler(5)); // FIXME-EULER-CONVENTION
-//		geo->setPosition(osg::Vec3d(poseEuler[0],
-//				poseEuler[1],
-//				poseEuler[2]));
-//		geo->setAttitude(osg::Vec3d(poseEuler[3],
-//				poseEuler[4],
-//				poseEuler[5]));
 
 		geo->setPosition(osg::Vec3d(poseQuat[0],
 				poseQuat[1],
 				poseQuat[2]
 				));
-		geo->setAttitude(osg::Quat(poseQuat[3],
+		geo->setAttitude(osg::Quat(
 				poseQuat[4],
 				poseQuat[5],
-				poseQuat[6]
+				poseQuat[6],
+				poseQuat[3]
 				));
 	}
 
