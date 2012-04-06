@@ -271,7 +271,7 @@ namespace display {
 		{
 			camFile += "/";
 		}
-		camFile += "modules/rtslam/data/models/camera.obj";
+		camFile += "modules/rtslam/data/models/camera.osg";
 		osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(camFile);
 		loadedModel->setDataVariance(osg::Object::STATIC);
 
