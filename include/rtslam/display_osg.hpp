@@ -55,41 +55,51 @@ namespace display {
 
 	class OsgViewerHolder
 	{
-	protected:
-		ViewerOsg *viewerOsg;
-	public:
-		OsgViewerHolder(ViewerAbstract *_viewer):
-			viewerOsg(PTR_CAST<ViewerOsg*>(_viewer))
-		{}
+		protected:
+			ViewerOsg *viewerOsg;
+		public:
+			OsgViewerHolder(ViewerAbstract *_viewer):
+				viewerOsg(PTR_CAST<ViewerOsg*>(_viewer))
+			{}
 	};
 
-	class OsgGroupHolder : public OsgViewerHolder
+	class OsgGeoHolder : public OsgViewerHolder
 	{
-	protected:
-		osg::ref_ptr<osg::Group> group;
-	public:
-		OsgGroupHolder(ViewerAbstract *_viewer):
-			OsgViewerHolder(_viewer)
-		{
-			group = new osg::Group;
-			group->setDataVariance(osg::Object::DYNAMIC);
-			viewerOsg->root()->addChild(group);
-		}
-
-		~OsgGroupHolder()
+		protected:
+			osg::ref_ptr<osg::Group> group;
+		public:
+			OsgGeoHolder(ViewerAbstract *_viewer):
+				OsgViewerHolder(_viewer)
 			{
-					viewerOsg->root()->removeChild(group);
+				group = new osg::Group;
+				group->setDataVariance(osg::Object::DYNAMIC);
+				viewerOsg->root()->addChild(group);
 			}
 
+			~OsgGeoHolder()
+			{
+				viewerOsg->root()->removeChild(group);
+			}
+
+			void render();
+
+		protected:
+			// Override these in derived classes!
+			virtual bool needCreateShapes() = 0;
+			virtual void createShapes() = 0;
+			virtual void refreshShapes() = 0;
+
+			// Some utility funcs
 			unsigned int numShapes()
 			{
-					return group->getNumChildren();
+				return group->getNumChildren();
 			}
 
 			void clearShapes()
 			{
-					group->removeChildren(0, group->getNumChildren());
+				group->removeChildren(0, group->getNumChildren());
 			}
+
 	};
 
 	class WorldOsg : public WorldDisplay, public OsgViewerHolder
@@ -113,7 +123,7 @@ namespace display {
 			void render() {}
 	};
 
-	class RobotOsg : public RobotDisplay, public OsgGroupHolder
+	class RobotOsg : public RobotDisplay, public OsgGeoHolder
 	{
 		protected:
 			// bufferized data
@@ -122,9 +132,10 @@ namespace display {
 		public:
 			RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap);
 			void bufferize();
-			void render();
 		protected:
-			osg::ref_ptr<osg::PositionAttitudeTransform> makeRobotGeo();
+			virtual bool needCreateShapes();
+			virtual void createShapes();
+			virtual void refreshShapes();
 	};
 
 	class SensorOsg : public SensorDisplay, public OsgViewerHolder
@@ -135,7 +146,7 @@ namespace display {
 			void render() {}
 	};
 
-	class LandmarkOsg : public LandmarkDisplay, public OsgGroupHolder
+	class LandmarkOsg : public LandmarkDisplay, public OsgGeoHolder
 	{
 		protected:
 			// buffered data
@@ -147,9 +158,12 @@ namespace display {
 		public:
 			LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap);
 			void bufferize();
-			void render();
 
 		protected:
+			virtual bool needCreateShapes();
+			virtual void createShapes();
+			virtual void refreshShapes();
+
 			// Some utility functions
 			inline colorRGB getColor();
 			inline void setColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b);

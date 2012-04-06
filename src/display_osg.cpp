@@ -9,6 +9,7 @@
 #ifdef HAVE_OSG
 
 #include <cmath>
+#include <cstdlib>
 
 #include <osgDB/ReadFile>
 #include <osgGA/TrackballManipulator>
@@ -94,6 +95,21 @@ namespace display {
 	}
 
 
+	void OsgGeoHolder::render()
+	{
+		osg::ref_ptr<osg::PositionAttitudeTransform> geo;
+
+		// Build display objects if it is the first time they are displayed
+		if (needCreateShapes())
+		{
+			clearShapes();
+			createShapes();
+		}
+
+		// Refresh the display objects every time
+		refreshShapes();
+	}
+
 	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
 
 	ViewerOsg::ViewerOsg(double _ellipsesScale):
@@ -139,88 +155,9 @@ namespace display {
 	}
 
 	RobotOsg::RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap):
-		RobotDisplay(_viewer, _slamRob, _dispMap), OsgGroupHolder(_viewer)
+		RobotDisplay(_viewer, _slamRob, _dispMap), OsgGeoHolder(_viewer)
 	{}
 
-
-	osg::ref_ptr<osg::PositionAttitudeTransform> RobotOsg::makeRobotGeo()
-	{
-		osg::ref_ptr<osg::PositionAttitudeTransform> transform;
-		transform = new osg::PositionAttitudeTransform;
-		transform->setDataVariance(osg::Object::DYNAMIC);
-		group->addChild(transform);
-		osg::Geode* geode = new osg::Geode();
-		geode->setDataVariance(osg::Object::STATIC);
-		transform->addChild(geode);
-
-		double vertsRaw[] = {
-			-0.424232, -0.806469, -1.084160,
-			-0.424232, -0.806469, 0.944964,
-			-0.424232, 0.383133, -1.084160,
-			-0.424232, 0.383133, 0.944964,
-			0.338672, 0.383133, -1.084160,
-			0.338672, 0.383133, 0.944964,
-			0.338672, -0.806469, -1.084160,
-			0.338672, -0.806469, 0.944964,
-			-0.225474, -0.225474, 0.711647,
-			-0.225474, -0.225474, 1.365039,
-			-0.225474, 0.225474, 0.711647,
-			-0.225474, 0.225474, 1.365039,
-			0.225474, 0.225474, 0.711647,
-			0.225474, 0.225474, 1.365039,
-			0.225474, -0.225474, 0.711647,
-			0.225474, -0.225474, 1.365039,
-			0.426727, -0.426727, 1.728939,
-			-0.426727, -0.426727, 1.728938,
-			0.426727, 0.426727, 1.728939,
-			-0.426727, 0.426727, 1.728938,
-			0.195310, 0.282111, -1.237820,
-			0.195310, 0.015068, -0.510367,
-			0.195310, 0.609222, -1.117740,
-			0.195310, 0.342179, -0.390287,
-			0.543765, 0.609222, -1.117740,
-			0.543765, 0.342179, -0.390287,
-			0.543765, 0.282111, -1.237820,
-			0.543765, 0.015068, -0.510367,
-			0.598679, 0.264946, -1.350416,
-			0.140395, 0.264946, -1.350416,
-			0.140395, 0.695159, -1.192488,
-			0.598679, 0.695159, -1.192488};
-
-		unsigned int facesRaw[] = {
-			4, 0, 1, 3, 2,
-			4, 2, 3, 5, 4,
-			4, 4, 5, 7, 6,
-			4, 6, 7, 1, 0,
-			4, 1, 7, 5, 3,
-			4, 6, 0, 2, 4,
-			4, 8, 9, 11, 10,
-			4, 10, 11, 13, 12,
-			4, 12, 13, 15, 14,
-			4, 14, 15, 9, 8,
-			4, 9, 15, 16, 17,
-			4, 15, 13, 18, 16,
-			4, 13, 11, 19, 18,
-			4, 11, 9, 17, 19,
-			4, 20, 21, 23, 22,
-			4, 22, 23, 25, 24,
-			4, 24, 25, 27, 26,
-			4, 26, 27, 21, 20,
-			4, 21, 27, 25, 23,
-			4, 28, 29, 30, 31,
-			4, 26, 20, 29, 28,
-			4, 20, 22, 30, 29,
-			4, 22, 24, 31, 30,
-			4, 24, 26, 28, 31,
-			4, 18, 19, 17, 16};
-
-	std::vector<double> verts(begin(vertsRaw), end(vertsRaw));
-	std::vector<unsigned int> faces(begin(facesRaw), end(facesRaw));
-
-	osg::ref_ptr<osg::Geometry> geo = makeGeoFromVertFaceLists(verts, faces);
-	geode->addDrawable(geo);
-	return transform;
-	}
 
 	void RobotOsg::bufferize()
 	{
@@ -228,50 +165,73 @@ namespace display {
 		poseQuatUncert = slamRob_->pose.P();
 	}
 
-	void RobotOsg::render()
+	bool RobotOsg::needCreateShapes()
 	{
-		osg::ref_ptr<osg::PositionAttitudeTransform> geo;
+		return numShapes() != 1;
+	}
 
-		// Build display objects if it is the first time they are displayed
-		if (numShapes() != 1)
+	void RobotOsg::createShapes()
+	{
+		// TODO: make osg own "module", move models there
+		// TODO: find better way to make relative path than using
+		// env vars - either find path of executable, and make relative to that,
+		// or attach file directly to executable
+		//
+		// some os-specific ways to get the current executable:
+		//
+		// Mac OS X: _NSGetExecutablePath() (man 3 dyld)
+		// Linux: readlink /proc/self/exe
+		// Solaris: getexecname()
+		// FreeBSD: sysctl CTL_KERN KERN_PROC KERN_PROC_PATHNAME -1
+		// BSD with procfs: readlink /proc/curproc/file
+		// Windows: GetModuleFileName() with hModule = NULL
+		//
+		std::string camFile = std::getenv("JAFAR_DIR");
+		char lastChar = camFile[camFile.size()-1];
+		if (lastChar != '/' and lastChar != '\\')
 		{
-			clearShapes();
-			geo = makeRobotGeo();
+			camFile += "/";
 		}
-		else
-		{
-			geo = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
-		}
+		camFile += "modules/rtslam/data/models/camera.obj";
+		osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(camFile);
+		loadedModel->setDataVariance(osg::Object::STATIC);
 
-		// Refresh the display objects every time
-		{
-//			// convert pose from quat to euler degrees
-//			jblas::vec poseEuler(6);
-//			jblas::vec angleEuler(3);
-//			jblas::sym_mat uncertEuler(3);
-//			ublas::subrange(poseEuler,0,3) = ublas::subrange(poseQuat,0,3);
-//			quaternion::q2e(ublas::subrange(poseQuat,3,7), ublas::project(poseQuatUncert,ublas::range(3,7),ublas::range(3,7)), angleEuler, uncertEuler);
-//			ublas::subrange(poseEuler,3,6) = angleEuler;
-//			//ublas::subrange(poseEuler,3,6) = quaternion::q2e(ublas::subrange(poseQuat,3,7));
-//			for(int i = 3; i < 6; ++i) poseEuler(i) = jmath::radToDeg(poseEuler(i));
-//			std::swap(poseEuler(3), poseEuler(5)); // FIXME-EULER-CONVENTION
-//			geo->setPosition(osg::Vec3d(poseEuler[0],
-//					poseEuler[1],
-//					poseEuler[2]));
-//			geo->setAttitude(osg::Vec3d(poseEuler[3],
-//					poseEuler[4],
-//					poseEuler[5]));
+		osg::ref_ptr<osg::PositionAttitudeTransform> transform;
+		transform = new osg::PositionAttitudeTransform;
+		transform->setDataVariance(osg::Object::DYNAMIC);
+		group->addChild(transform);
+		transform->addChild(loadedModel);
+	}
 
-			geo->setPosition(osg::Vec3d(poseQuat[0],
-					poseQuat[1],
-					poseQuat[2]
-					));
-			geo->setAttitude(osg::Quat(poseQuat[3],
-					poseQuat[4],
-					poseQuat[5],
-					poseQuat[6]
-					));
-		}
+	void RobotOsg::refreshShapes()
+	{
+		osg::PositionAttitudeTransform* geo = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+//		// convert pose from quat to euler degrees
+//		jblas::vec poseEuler(6);
+//		jblas::vec angleEuler(3);
+//		jblas::sym_mat uncertEuler(3);
+//		ublas::subrange(poseEuler,0,3) = ublas::subrange(poseQuat,0,3);
+//		quaternion::q2e(ublas::subrange(poseQuat,3,7), ublas::project(poseQuatUncert,ublas::range(3,7),ublas::range(3,7)), angleEuler, uncertEuler);
+//		ublas::subrange(poseEuler,3,6) = angleEuler;
+//		//ublas::subrange(poseEuler,3,6) = quaternion::q2e(ublas::subrange(poseQuat,3,7));
+//		for(int i = 3; i < 6; ++i) poseEuler(i) = jmath::radToDeg(poseEuler(i));
+//		std::swap(poseEuler(3), poseEuler(5)); // FIXME-EULER-CONVENTION
+//		geo->setPosition(osg::Vec3d(poseEuler[0],
+//				poseEuler[1],
+//				poseEuler[2]));
+//		geo->setAttitude(osg::Vec3d(poseEuler[3],
+//				poseEuler[4],
+//				poseEuler[5]));
+
+		geo->setPosition(osg::Vec3d(poseQuat[0],
+				poseQuat[1],
+				poseQuat[2]
+				));
+		geo->setAttitude(osg::Quat(poseQuat[3],
+				poseQuat[4],
+				poseQuat[5],
+				poseQuat[6]
+				));
 	}
 
 
@@ -281,7 +241,7 @@ namespace display {
 	}
 //
 	LandmarkOsg::LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap):
-		LandmarkDisplay(_viewer, _slamLmk, _dispMap), OsgGroupHolder(_viewer)
+		LandmarkDisplay(_viewer, _slamLmk, _dispMap), OsgGeoHolder(_viewer)
 	{
 		id_ = _slamLmk->id();
 		lmkType_ = _slamLmk->type;
@@ -361,34 +321,72 @@ namespace display {
 		return c;
 	}
 
+	bool LandmarkOsg::needCreateShapes()
+	{
+		switch (lmkType_)
+		{
+			case LandmarkAbstract::PNT_EUC:
+			{
+				return (numShapes() != 1);
+			}
+			case LandmarkAbstract::PNT_AH:
+			{
+				return (numShapes() != 2);
 
-	void LandmarkOsg::render()
+			}
+			case LandmarkAbstract::LINE_AHPL:
+			{
+				// TODO: implement this...
+				return false;
+			}
+			default:
+			{
+				JFR_ERROR(RtslamException, RtslamException::UNKNOWN_FEATURE_TYPE, "Don't know how to display this type of landmark: " << type_);
+				return false; // Just here to make the IDE error checker happy...
+			}
+		}
+	}
+
+
+	void LandmarkOsg::createShapes()
+	{
+		switch (lmkType_)
+		{
+			case LandmarkAbstract::PNT_EUC:
+			{
+				makeSphere();
+				break;
+			}
+			case LandmarkAbstract::PNT_AH:
+			{
+				makeSphere();
+				makeLine();
+				break;
+			}
+			case LandmarkAbstract::LINE_AHPL:
+			{
+				// TODO: implement this...
+				break;
+			}
+			default:
+			{
+				JFR_ERROR(RtslamException, RtslamException::UNKNOWN_FEATURE_TYPE, "Don't know how to display this type of landmark: " << type_);
+				break; // Just here to make the IDE error checker happy...
+			}
+		}
+	}
+
+	void LandmarkOsg::refreshShapes()
 	{
 		colorRGB color = getColor();
-
 		switch (lmkType_)
 		{
 			case LandmarkAbstract::PNT_EUC:
 			{
 				osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
-
-				// Build display objects if it is the first time they are displayed
-				if (numShapes() != 1)
-				{
-					clearShapes();
-					sphere = makeSphere();
-				}
-				else
-				{
-					sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
-				}
-
-				// Refresh the display objects every time
-				{
-					// sphere
-					setColor(sphere, color);
-					sphere->setPosition(osg::Vec3d(state_[0], state_[1], state_[2]));
-				}
+				sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+				setColor(sphere, color);
+				sphere->setPosition(osg::Vec3d(state_[0], state_[1], state_[2]));
 				break;
 			}
 			case LandmarkAbstract::PNT_AH:
@@ -396,59 +394,48 @@ namespace display {
 				osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
 				osg::ref_ptr<osg::PositionAttitudeTransform> line;
 
-				// Build display objects if it is the first time they are displayed
-				if (numShapes() != 2)
-				{
-					clearShapes();
-					sphere = makeSphere();
-					line = makeLine();
-				}
-				else
-				{
-					sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
-					line = group->getChild(1)->asTransform()->asPositionAttitudeTransform();
-				}
+				sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+				line = group->getChild(1)->asTransform()->asPositionAttitudeTransform();
 
-				// Refresh the display objects every time
-				{
-					// sphere
-					setColor(sphere, color);
-					jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
-					sphere->setPosition(osg::Vec3d(xNew[0], xNew[1], xNew[2]));
+				// sphere
+				setColor(sphere, color);
+				jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
+				sphere->setPosition(osg::Vec3d(xNew[0], xNew[1], xNew[2]));
 
-					// segment
-					osg::Geometry* lineGeo = line->getChild(0)->asGeode()->getDrawable(0)->asGeometry();
-					osg::Vec3dArray* verts = dynamic_cast<osg::Vec3dArray*>(lineGeo->getVertexArray());
+				// segment
+				osg::Geometry* lineGeo = line->getChild(0)->asGeode()->getDrawable(0)->asGeometry();
+				osg::Vec3dArray* verts = dynamic_cast<osg::Vec3dArray*>(lineGeo->getVertexArray());
 
-					// FIXME: figure out proper scaling
-					//double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
-					//double id_std = sqrt(cov_(6,6));
-					double id_std = sqrt(cov_(6,6))/viewerOsg->ellipsesScale;
-					jblas::vec3 position = lmkAHP::ahp2euc(state_);
-					jblas::vec7 state = state_;
-					state(6) = state_(6) - id_std; if (state(6) < 1e-4) state(6) = 1e-4;
-					jblas::vec3 positionExt = lmkAHP::ahp2euc(state);
-					jblas::vec3 p1 = positionExt - position;
-					state(6) = state_(6) + id_std;
-					positionExt = lmkAHP::ahp2euc(state);
-					jblas::vec3 p2 = positionExt - position;
+				// FIXME: figure out proper scaling
+				//double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
+				//double id_std = sqrt(cov_(6,6));
+				double id_std = sqrt(cov_(6,6))/viewerOsg->ellipsesScale;
+				jblas::vec3 position = lmkAHP::ahp2euc(state_);
+				jblas::vec7 state = state_;
+				state(6) = state_(6) - id_std; if (state(6) < 1e-4) state(6) = 1e-4;
+				jblas::vec3 positionExt = lmkAHP::ahp2euc(state);
+				jblas::vec3 p1 = positionExt - position;
+				state(6) = state_(6) + id_std;
+				positionExt = lmkAHP::ahp2euc(state);
+				jblas::vec3 p2 = positionExt - position;
 
-					(*verts)[0] = osg::Vec3d(p1[0], p1[1], p1[2]);
-					(*verts)[1] = osg::Vec3d(p2[0], p2[1], p2[2]);
-					line->setPosition(osg::Vec3d(position[0], position[1], position[2]));
-				}
+				(*verts)[0] = osg::Vec3d(p1[0], p1[1], p1[2]);
+				(*verts)[1] = osg::Vec3d(p2[0], p2[1], p2[2]);
+				line->setPosition(osg::Vec3d(position[0], position[1], position[2]));
 				break;
-		}
-		case LandmarkAbstract::LINE_AHPL:
-		{
-			break;
-		}
+			}
+			case LandmarkAbstract::LINE_AHPL:
+			{
+				// TODO: implement this...
+				break;
+			}
 			default:
+			{
 				JFR_ERROR(RtslamException, RtslamException::UNKNOWN_FEATURE_TYPE, "Don't know how to display this type of landmark: " << type_);
+				break; // Just here to make the IDE error checker happy...
+			}
 		}
 	}
-
-
 
 	ObservationOsg::ObservationOsg(ViewerAbstract *_viewer, rtslam::ObservationAbstract *_slamLmk, SensorOsg *_dispMap):
 		ObservationDisplay(_viewer, _slamLmk, _dispMap), OsgViewerHolder(_viewer)
