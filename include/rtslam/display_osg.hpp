@@ -76,7 +76,7 @@ namespace display {
 				viewerOsg->root()->addChild(group);
 			}
 
-			~OsgGeoHolder()
+			virtual ~OsgGeoHolder()
 			{
 				viewerOsg->root()->removeChild(group);
 			}
@@ -166,8 +166,10 @@ namespace display {
 
 			// Some utility functions
 			inline colorRGB getColor();
-			inline void setColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b);
-			inline void setColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
+			inline void setSphereColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b, double a = 1.0);
+			inline void setSphereColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
+			inline void setLineColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b, double a = 1.0);
+			inline void setLineColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
 			osg::ref_ptr<osg::PositionAttitudeTransform> makeSphere();
 			osg::ref_ptr<osg::PositionAttitudeTransform> makeLine();
 	};

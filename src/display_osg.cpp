@@ -78,8 +78,8 @@ namespace display {
 			geometry->addPrimitiveSet(poly);
 		}
 
-		osg::ref_ptr<osg::Vec4dArray> colors = new osg::Vec4dArray;
-		geometry->setColorArray( colors.get() );
+		osg::Vec4dArray* colors = new osg::Vec4dArray;
+		geometry->setColorArray( colors );
 		geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
 		colors->push_back( color );
 
@@ -260,17 +260,39 @@ namespace display {
 		cov_ = slamLmk_->state.P();
 	}
 
-	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b)
+	void LandmarkOsg::setSphereColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b, double a)
 	{
 		osg::ShapeDrawable* shape;
-		shape = static_cast<osg::ShapeDrawable*>(transform->getChild(0)->asGeode()->getDrawable(0));
-		shape->setColor(osg::Vec4d(r, g, b, 1.0));
+		shape = dynamic_cast<osg::ShapeDrawable*>(transform->getChild(0)->asGeode()->getDrawable(0));
+		shape->setColor(osg::Vec4d(r, g, b, a));
 	}
 
-	void LandmarkOsg::setColor(osg::ref_ptr<osg::Group> transform, colorRGB color)
+	void LandmarkOsg::setSphereColor(osg::ref_ptr<osg::Group> transform, colorRGB color)
 	{
-		setColor(transform, color.R, color.G, color.B);
+		setSphereColor(transform, color.R/255.0, color.G/255.0, color.B/255.0);
 	}
+
+	void LandmarkOsg::setLineColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b, double a)
+	{
+		osg::Geometry* geo = transform->getChild(0)->asGeode()->getDrawable(0)->asGeometry();
+		osg::Vec4dArray* colors = dynamic_cast<osg::Vec4dArray*>(geo->getColorArray());
+		if (colors->size() != 1)
+		{
+			colors->clear();
+			colors->push_back(osg::Vec4d(r, g, b, a));
+		}
+		else
+		{
+			(*colors)[0] = osg::Vec4d(r, g, b, a);
+		}
+
+	}
+
+	void LandmarkOsg::setLineColor(osg::ref_ptr<osg::Group> transform, colorRGB color)
+	{
+		setLineColor(transform, color.R/255.0, color.G/255.0, color.B/255.0);
+	}
+
 
 	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeSphere()
 	{
@@ -310,6 +332,12 @@ namespace display {
 		linePrimative->push_back(0);
 		linePrimative->push_back(1);
 		geometry->addPrimitiveSet(linePrimative);
+		osg::Vec4dArray* colors = new osg::Vec4dArray;
+		geometry->setColorArray( colors );
+		geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
+		colorRGB color = getColor();
+		colors->push_back(osg::Vec4d(color.R/255.0, color.G/255.0, color.B/255.0, 1.0));
+
 		return line;
 	}
 
@@ -385,7 +413,7 @@ namespace display {
 			{
 				osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
 				sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
-				setColor(sphere, color);
+				setSphereColor(sphere, color);
 				sphere->setPosition(osg::Vec3d(state_[0], state_[1], state_[2]));
 				break;
 			}
@@ -398,7 +426,7 @@ namespace display {
 				line = group->getChild(1)->asTransform()->asPositionAttitudeTransform();
 
 				// sphere
-				setColor(sphere, color);
+				setSphereColor(sphere, color);
 				jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
 				sphere->setPosition(osg::Vec3d(xNew[0], xNew[1], xNew[2]));
 
