@@ -28,7 +28,6 @@ namespace display {
 	template <typename T, size_t N>
 	T* end(T(&arr)[N]) { return &arr[0]+N; }
 
-
 	// Utility method to make poly geo
 	// Expects a flat list of vertIndices - [x,y,z,x,y,z,...]
 	// and a flat list of faceIndices, of the form
@@ -94,11 +93,60 @@ namespace display {
 				osg::Vec4d(r, g, b, a));
 	}
 
+	osg::ref_ptr<osg::StateSet> lineSS;
+
+	// Utility method to make a line segment
+	osg::ref_ptr<osg::Geometry> makeLineGeo(osg::Vec3d p1 = osg::Vec3d(0,0,0),
+			osg::Vec3d p2 = osg::Vec3d(0,0,0),
+			osg::Vec4d color = osg::Vec4d(0,0,0,1.0),
+			osg::Object::DataVariance variance = osg::Object::UNSPECIFIED)
+	{
+		if (not lineSS)
+		{
+			lineSS = new osg::StateSet;
+			lineSS->setMode(GL_LIGHTING, osg::StateAttribute::OFF );
+		}
+
+		osg::Geometry* geometry = new osg::Geometry();
+		geometry->setDataVariance(variance);
+		if(variance == osg::Object::DYNAMIC)
+		{
+			// Assume that if it's dynamic, we'll be changing endpoints, so
+			// we'll want to use vertex buffer objects
+			geometry->setUseDisplayList(false);
+			geometry->setUseVertexBufferObjects(true);
+		}
+		osg::Vec3dArray* verts = new osg::Vec3dArray;
+		verts->push_back( p1 );
+		verts->push_back( p2 );
+		geometry->setVertexArray( verts );
+		osg::DrawElementsUInt* linePrimative = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
+		linePrimative->push_back(0);
+		linePrimative->push_back(1);
+		geometry->addPrimitiveSet(linePrimative);
+		osg::Vec4dArray* colors = new osg::Vec4dArray;
+		geometry->setColorArray( colors );
+		geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
+		colors->push_back(color);
+		geometry->setStateSet(lineSS.get());
+		return geometry;
+	}
+
+	OsgGeoHolder::OsgGeoHolder(ViewerAbstract *_viewer):
+		OsgViewerHolder(_viewer)
+	{
+		group = new osg::Group;
+		group->setDataVariance(osg::Object::DYNAMIC);
+		viewerOsg->root()->addChild(group);
+	}
+
+	OsgGeoHolder::~OsgGeoHolder()
+	{
+		viewerOsg->root()->removeChild(group);
+	}
 
 	void OsgGeoHolder::render()
 	{
-		osg::ref_ptr<osg::PositionAttitudeTransform> geo;
-
 		// Build display objects if it is the first time they are displayed
 		if (needCreateShapes())
 		{
@@ -109,6 +157,37 @@ namespace display {
 		// Refresh the display objects every time
 		refreshShapes();
 	}
+
+	// Some utility funcs
+	unsigned int OsgGeoHolder::numShapes()
+	{
+		return group->getNumChildren();
+	}
+
+	void OsgGeoHolder::clearShapes()
+	{
+		group->removeChildren(0, group->getNumChildren());
+	}
+
+	osg::ref_ptr<osg::PositionAttitudeTransform> OsgGeoHolder::makeTransformForDrawable(osg::ref_ptr<osg::Drawable> drawable)
+	{
+		osg::ref_ptr<osg::PositionAttitudeTransform> trans = new osg::PositionAttitudeTransform;
+		osg::Geode* geode = new osg::Geode();
+
+		// Make transfrom variance dynamic - if we're making a transform,
+		// likely because we want to move it around
+		trans->setDataVariance(osg::Object::DYNAMIC);
+		// Set the geode's variance to match shape's
+		osg::Object::DataVariance shapeVar = drawable->getDataVariance();
+		geode->setDataVariance(shapeVar);
+
+		group->addChild(trans);
+		trans->addChild(geode);
+		geode->addDrawable(drawable);
+
+		return trans;
+	}
+
 
 	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
 
@@ -296,49 +375,20 @@ namespace display {
 
 	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeSphere()
 	{
-		osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
-
-		sphere = new osg::PositionAttitudeTransform;
-		sphere->setDataVariance(osg::Object::DYNAMIC);
-		group->addChild(sphere);
-		osg::Geode* geode = new osg::Geode;
-		geode->setDataVariance(osg::Object::DYNAMIC);
-		sphere->addChild(geode);
 		// FIXME: figure out proper way to set sphere scale
 		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), viewerOsg->ellipsesScale/100.0));
-		geode->addDrawable(sphereShape);
-		return sphere;
+		return makeTransformForDrawable(sphereShape);
 	}
 
 	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeLine()
 	{
-		osg::ref_ptr<osg::PositionAttitudeTransform> line;
-		line = new osg::PositionAttitudeTransform;
-		line->setDataVariance(osg::Object::DYNAMIC);
-		group->addChild(line);
-		osg::Geode* geode = new osg::Geode();
-		geode->setDataVariance(osg::Object::DYNAMIC);
-		line->addChild(geode);
-		osg::Geometry* geometry = new osg::Geometry();
-		geometry->setDataVariance(osg::Object::DYNAMIC);
-		// Because we'll be updating positions...
-		geometry->setUseVertexBufferObjects(true);
-		geode->addDrawable(geometry);
-		osg::Vec3dArray* verts = new osg::Vec3dArray;
-		verts->push_back( osg::Vec3d( 0, 0, 0) );
-		verts->push_back( osg::Vec3d( 0, 0, 0) );
-		geometry->setVertexArray( verts );
-		osg::DrawElementsUInt* linePrimative = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
-		linePrimative->push_back(0);
-		linePrimative->push_back(1);
-		geometry->addPrimitiveSet(linePrimative);
-		osg::Vec4dArray* colors = new osg::Vec4dArray;
-		geometry->setColorArray( colors );
-		geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
-		colorRGB color = getColor();
-		colors->push_back(osg::Vec4d(color.R/255.0, color.G/255.0, color.B/255.0, 1.0));
+		colorRGB colorInt = getColor();
+		osg::Vec4d color(colorInt.R/255.0, colorInt.G/255.0, colorInt.B/255.0, 1.0);
+		osg::Vec3d p1(0,0,0);
+		osg::Vec3d p2(0,0,0);
 
-		return line;
+		osg::ref_ptr<osg::Geometry> lineGeo = makeLineGeo(p1, p2, color, osg::Object::DYNAMIC);
+		return makeTransformForDrawable(lineGeo);
 	}
 
 	colorRGB LandmarkOsg::getColor()
@@ -450,6 +500,7 @@ namespace display {
 				(*verts)[0] = osg::Vec3d(p1[0], p1[1], p1[2]);
 				(*verts)[1] = osg::Vec3d(p2[0], p2[1], p2[2]);
 				line->setPosition(osg::Vec3d(position[0], position[1], position[2]));
+				setLineColor(line, color);
 				break;
 			}
 			case LandmarkAbstract::LINE_AHPL:

@@ -68,19 +68,8 @@ namespace display {
 		protected:
 			osg::ref_ptr<osg::Group> group;
 		public:
-			OsgGeoHolder(ViewerAbstract *_viewer):
-				OsgViewerHolder(_viewer)
-			{
-				group = new osg::Group;
-				group->setDataVariance(osg::Object::DYNAMIC);
-				viewerOsg->root()->addChild(group);
-			}
-
-			virtual ~OsgGeoHolder()
-			{
-				viewerOsg->root()->removeChild(group);
-			}
-
+			OsgGeoHolder(ViewerAbstract *_viewer);
+			virtual ~OsgGeoHolder();
 			void render();
 
 		protected:
@@ -90,16 +79,9 @@ namespace display {
 			virtual void refreshShapes() = 0;
 
 			// Some utility funcs
-			unsigned int numShapes()
-			{
-				return group->getNumChildren();
-			}
-
-			void clearShapes()
-			{
-				group->removeChildren(0, group->getNumChildren());
-			}
-
+			unsigned int numShapes();
+			void clearShapes();
+			osg::ref_ptr<osg::PositionAttitudeTransform> makeTransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
 	};
 
 	class WorldOsg : public WorldDisplay, public OsgViewerHolder
@@ -109,8 +91,6 @@ namespace display {
 			void bufferize() {}
 			void render() {}
 	};
-
-
 
 	class MapOsg : public MapDisplay, public OsgViewerHolder
 	{
