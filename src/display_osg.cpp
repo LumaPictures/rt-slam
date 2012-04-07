@@ -14,8 +14,11 @@
 #include <osgDB/ReadFile>
 #include <osgGA/TrackballManipulator>
 #include <osgGA/TerrainManipulator>
+#include <osgGA/FlightManipulator>
+#include <osgGA/DriveManipulator>
 #include <osgGA/StateSetManipulator>
 #include <osgViewer/ViewerEventHandlers>
+#include <osgGA/KeySwitchMatrixManipulator>
 #include <osg/Geode>
 #include <osg/ApplicationUsage>
 #include <osg/ShapeDrawable>
@@ -165,9 +168,20 @@ namespace display {
 
 	void ViewerOsg::setupView(osg::ref_ptr<osgViewer::View> view)
 	{
-		//viewer_->setCameraManipulator( new osgGA::TrackballManipulator );
-		viewer_->setCameraManipulator(new osgGA::TerrainManipulator);
 		viewer_->setSceneData(root_);
+
+		// set up the camera manipulators.
+		{
+			osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
+
+			keyswitchManipulator->addMatrixManipulator( '1', "Terrain", new osgGA::TerrainManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '2', "Trackball", new osgGA::TrackballManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '3', "Flight", new osgGA::FlightManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '4', "Drive", new osgGA::DriveManipulator() );
+
+			viewer_->setCameraManipulator( keyswitchManipulator.get() );
+		}
+
 
 		// add the state manipulator
 		view->addEventHandler(new osgGA::StateSetManipulator(view->getCamera()->getOrCreateStateSet()));
