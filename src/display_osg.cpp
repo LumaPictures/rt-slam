@@ -13,7 +13,11 @@
 
 #include <osgDB/ReadFile>
 #include <osgGA/TrackballManipulator>
+#include <osgGA/TerrainManipulator>
+#include <osgGA/StateSetManipulator>
+#include <osgViewer/ViewerEventHandlers>
 #include <osg/Geode>
+#include <osg/ApplicationUsage>
 #include <osg/ShapeDrawable>
 
 #include "rtslam/ahpTools.hpp"
@@ -132,6 +136,70 @@ namespace display {
 		return geometry;
 	}
 
+	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
+
+	ViewerOsg::ViewerOsg(double _ellipsesScale):
+			ellipsesScale(_ellipsesScale)
+	{
+		// load the scene.
+		root_ = new osg::Group;
+		root_->setDataVariance(osg::Object::DYNAMIC);
+		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
+		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
+		//if (loadedModel) root_->addChild(loadedModel);
+		viewer_ = new osgViewer::Viewer;
+		setupView(viewer_);
+		viewer_->realize();
+	}
+
+	void ViewerOsg::render()
+	{
+		BaseViewerClass::render();
+		viewer_->frame();
+	}
+
+	osg::ref_ptr<osg::Group> ViewerOsg::root()
+	{
+		return root_;
+	}
+
+	void ViewerOsg::setupView(osg::ref_ptr<osgViewer::View> view)
+	{
+		//viewer_->setCameraManipulator( new osgGA::TrackballManipulator );
+		viewer_->setCameraManipulator(new osgGA::TerrainManipulator);
+		viewer_->setSceneData(root_);
+
+		// add the state manipulator
+		view->addEventHandler(new osgGA::StateSetManipulator(view->getCamera()->getOrCreateStateSet()));
+
+		// This causes a seg fault - probably problems with QT?
+		// For possible solutions, see:
+		//   http://forum.openscenegraph.org/viewtopic.php?t=9342
+		//   http://labs.qt.nokia.com/2011/06/03/threaded-opengl-in-4-8/
+		//   http://labs.qt.nokia.com/2010/06/17/youre-doing-it-wrong/
+//        // add the thread model handler
+//        view->addEventHandler(new osgViewer::ThreadingHandler);
+
+		// add the window size toggle handler
+		view->addEventHandler(new osgViewer::WindowSizeHandler);
+
+		// add the stats handler
+		view->addEventHandler(new osgViewer::StatsHandler);
+
+		// add the help handler
+		view->addEventHandler(new osgViewer::HelpHandler(osg::ApplicationUsage::instance()));
+
+		// add the record camera path handler
+		view->addEventHandler(new osgViewer::RecordCameraPathHandler);
+
+		// add the LOD Scale handler
+		view->addEventHandler(new osgViewer::LODScaleHandler);
+
+		// add the screen capture handler
+		view->addEventHandler(new osgViewer::ScreenCaptureHandler);
+
+	}
+
 	OsgGeoHolder::OsgGeoHolder(ViewerAbstract *_viewer):
 		OsgViewerHolder(_viewer)
 	{
@@ -186,35 +254,6 @@ namespace display {
 		geode->addDrawable(drawable);
 
 		return trans;
-	}
-
-
-	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
-
-	ViewerOsg::ViewerOsg(double _ellipsesScale):
-			ellipsesScale(_ellipsesScale)
-	{
-		// load the scene.
-		_root = new osg::Group;
-		_root->setDataVariance(osg::Object::DYNAMIC);
-		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
-		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
-		//if (loadedModel) _root->addChild(loadedModel);
-		_viewer = new osgViewer::Viewer;
-		_viewer->setCameraManipulator( new osgGA::TrackballManipulator );
-		_viewer->setSceneData(_root);
-		_viewer->realize();
-	}
-
-	void ViewerOsg::render()
-	{
-		BaseViewerClass::render();
-		_viewer->frame();
-	}
-
-	osg::ref_ptr<osg::Group> ViewerOsg::root()
-	{
-		return _root;
 	}
 
 	WorldOsg::WorldOsg(ViewerAbstract *_viewer, rtslam::WorldAbstract *_slamWor, WorldDisplay *garbage):

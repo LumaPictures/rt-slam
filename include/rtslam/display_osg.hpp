@@ -42,15 +42,18 @@ namespace display {
 			static const double DEFAULT_ELLIPSES_SCALE;
 
 		protected:
-			osg::ref_ptr<osgViewer::Viewer> _viewer;
+			osg::ref_ptr<osgViewer::Viewer> viewer_;
 		private:
-			osg::ref_ptr<osg::Group> _root;
+			osg::ref_ptr<osg::Group> root_;
 
 		public:
 			// some configuration parameters
 			ViewerOsg(double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
 			void render();
 			osg::ref_ptr<osg::Group> root();
+
+		protected:
+			void setupView(osg::ref_ptr<osgViewer::View> view);
 	};
 
 	class OsgViewerHolder
