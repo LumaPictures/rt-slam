@@ -95,15 +95,18 @@ namespace display {
 			void render() {}
 	};
 
-	class MapOsg : public MapDisplay, public OsgViewerHolder
+	class MapOsg : public MapDisplay, public OsgGeoHolder
 	{
 		protected:
 			// bufferized data
-			jblas::vec poseQuat;
+			//jblas::vec poseQuat;
 		public:
 			MapOsg(ViewerAbstract *_viewer, rtslam::MapAbstract *_slamMap, WorldOsg *_dispWorld);
 			void bufferize();
-			void render() {}
+		protected:
+			virtual bool needCreateShapes();
+			virtual void createShapes();
+			virtual void refreshShapes();
 	};
 
 	class RobotOsg : public RobotDisplay, public OsgGeoHolder

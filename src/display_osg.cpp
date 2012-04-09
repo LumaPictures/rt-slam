@@ -29,6 +29,10 @@ namespace jafar {
 namespace rtslam {
 namespace display {
 
+	//////////////////////////////////////////////////
+	// Utility macros / functions
+	//////////////////////////////////////////////////
+
 	// Utility begin / end templates for arrays
 	template <typename T, size_t N>
 	T* begin(T(&arr)[N]) { return &arr[0]; }
@@ -139,6 +143,10 @@ namespace display {
 		return geometry;
 	}
 
+	//////////////////////////////////////////////////
+	// ViewerOsg
+	//////////////////////////////////////////////////
+
 	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
 
 	ViewerOsg::ViewerOsg(double _ellipsesScale):
@@ -214,6 +222,10 @@ namespace display {
 
 	}
 
+	//////////////////////////////////////////////////
+	// OsgGeoHolder
+	//////////////////////////////////////////////////
+
 	OsgGeoHolder::OsgGeoHolder(ViewerAbstract *_viewer):
 		OsgViewerHolder(_viewer)
 	{
@@ -270,6 +282,10 @@ namespace display {
 		return trans;
 	}
 
+	//////////////////////////////////////////////////
+	// All DisplayDataAbstract subclasses
+	//////////////////////////////////////////////////
+
 	WorldOsg::WorldOsg(ViewerAbstract *_viewer, rtslam::WorldAbstract *_slamWor, WorldDisplay *garbage):
 		WorldDisplay(_viewer, _slamWor, garbage), OsgViewerHolder(_viewer)
 	{
@@ -277,19 +293,43 @@ namespace display {
 
 
 	MapOsg::MapOsg(ViewerAbstract *_viewer, rtslam::MapAbstract *_slamMap, WorldOsg *_dispWorld):
-		MapDisplay(_viewer, _slamMap, _dispWorld), OsgViewerHolder(_viewer)
+		MapDisplay(_viewer, _slamMap, _dispWorld), OsgGeoHolder(_viewer)
 	{
 	}
 
 	void MapOsg::bufferize()
 	{
-		poseQuat = ublas::subrange(slamMap_->state.x(), 0, 7);
+		//poseQuat = ublas::subrange(slamMap_->state.x(), 0, 7);
+	}
+
+	bool MapOsg::needCreateShapes()
+	{
+		return numShapes() != 1;
+	}
+
+	void MapOsg::createShapes()
+	{
+		// Draw the world axes
+		osg::ref_ptr<osg::Geometry> xAxis = makeLineGeo(osg::Vec3d(0,0,0),
+				osg::Vec3d(1,0,0), osg::Vec4d(.5,0,0,1), osg::Object::STATIC);
+		osg::ref_ptr<osg::Geometry> yAxis = makeLineGeo(osg::Vec3d(0,0,0),
+				osg::Vec3d(0,1,0), osg::Vec4d(0,.5,0,1), osg::Object::STATIC);
+		osg::ref_ptr<osg::Geometry> zAxis = makeLineGeo(osg::Vec3d(0,0,0),
+				osg::Vec3d(0,0,1), osg::Vec4d(0,0,.5,1), osg::Object::STATIC);
+		osg::ref_ptr<osg::PositionAttitudeTransform> trans = makeTransformForDrawable(xAxis);
+		osg::Geode& geode = *(trans->getChild(0)->asGeode());
+		geode.addDrawable(yAxis);
+		geode.addDrawable(zAxis);
+	}
+
+	void MapOsg::refreshShapes()
+	{
+		//poseQuat = ublas::subrange(slamMap_->state.x(), 0, 7);
 	}
 
 	RobotOsg::RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap):
 		RobotDisplay(_viewer, _slamRob, _dispMap), OsgGeoHolder(_viewer)
 	{}
-
 
 	void RobotOsg::bufferize()
 	{
