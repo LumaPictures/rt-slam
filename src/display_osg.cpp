@@ -566,7 +566,7 @@ namespace display {
 				// FIXME: figure out proper scaling
 				//double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
 				//double id_std = sqrt(cov_(6,6));
-				double id_std = sqrt(cov_(6,6))/viewerOsg->ellipsesScale;
+				double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
 				jblas::vec3 position = lmkAHP::ahp2euc(state_);
 				jblas::vec7 state = state_;
 				state(6) = state_(6) - id_std; if (state(6) < 1e-4) state(6) = 1e-4;
