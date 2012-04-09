@@ -202,8 +202,9 @@ namespace display {
 //        // add the thread model handler
 //        view->addEventHandler(new osgViewer::ThreadingHandler);
 
+		// Toggling OUT of fullscreen (on linux) has some issues - disable for now
 		// add the window size toggle handler
-		view->addEventHandler(new osgViewer::WindowSizeHandler);
+		//view->addEventHandler(new osgViewer::WindowSizeHandler);
 
 		// add the stats handler
 		view->addEventHandler(new osgViewer::StatsHandler);
