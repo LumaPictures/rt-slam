@@ -125,7 +125,11 @@ namespace display {
 			// Assume that if it's dynamic, we'll be changing endpoints, so
 			// we'll want to use vertex buffer objects
 			geometry->setUseDisplayList(false);
-			geometry->setUseVertexBufferObjects(true);
+			// TODO: figure out how to "properly" use vertexBufferObjects
+			// with dynamic geometry - try to look at
+			// http://www.openscenegraph.org/projects/osg/attachment/wiki/Support/Tutorials/osgGPUMorph.3.zip
+			// ...once the openscenegraph website is working again!
+			//geometry->setUseVertexBufferObjects(true);
 		}
 		osg::Vec3dArray* verts = new osg::Vec3dArray;
 		verts->push_back( p1 );
