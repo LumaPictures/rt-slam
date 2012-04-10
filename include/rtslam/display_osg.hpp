@@ -40,6 +40,8 @@ namespace display {
 		public:
 			double ellipsesScale;
 			static const double DEFAULT_ELLIPSES_SCALE;
+			static const double NEAR_CLIP;
+			static const double FAR_CLIP;
 
 		protected:
 			osg::ref_ptr<osgViewer::Viewer> viewer_;

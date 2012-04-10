@@ -152,6 +152,8 @@ namespace display {
 	//////////////////////////////////////////////////
 
 	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
+	const double ViewerOsg::NEAR_CLIP = .01;
+	const double ViewerOsg::FAR_CLIP = 100.0;
 
 	ViewerOsg::ViewerOsg(double _ellipsesScale):
 			ellipsesScale(_ellipsesScale)
@@ -193,6 +195,16 @@ namespace display {
 
 			viewer_->setCameraManipulator( keyswitchManipulator.get() );
 		}
+
+		// Set the near/far clipping planes
+		// By default, osg tries to manage this - this is bad for us, as we
+		// create a fair number of line segments that shoot off WAY into the
+		// distance...
+		osg::Camera* cam = viewer_->getCamera();
+		cam->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
+		double fovy, aspectRatio, zNear, zFar;
+		cam->getProjectionMatrixAsPerspective(fovy, aspectRatio, zNear, zFar);
+		cam->setProjectionMatrixAsPerspective(fovy, aspectRatio, NEAR_CLIP, FAR_CLIP);
 
 
 		// add the state manipulator
