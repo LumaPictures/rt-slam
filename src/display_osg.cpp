@@ -108,10 +108,10 @@ namespace display {
 	osg::ref_ptr<osg::StateSet> lineSS;
 
 	// Utility method to make a line segment
-	osg::ref_ptr<osg::Geometry> makeLineGeo(osg::Vec3 p1 = osg::Vec3(0,0,0),
-			osg::Vec3 p2 = osg::Vec3(0,0,0),
-			osg::Vec4 color = osg::Vec4(0,0,0,1.0),
-			osg::Object::DataVariance variance = osg::Object::UNSPECIFIED)
+	osg::ref_ptr<osg::Geometry> makeLineGeo(osg::Vec3Array& verts_,
+			const osg::Vec4 color = osg::Vec4(0,0,0,1.0),
+			const osg::Object::DataVariance variance = osg::Object::UNSPECIFIED,
+			bool allocateNewVertArray=true)
 	{
 		if (not lineSS)
 		{
@@ -119,23 +119,26 @@ namespace display {
 			lineSS->setMode(GL_LIGHTING, osg::StateAttribute::OFF );
 		}
 
-		osg::Geometry* geometry = new osg::Geometry();
+		osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry();
 		geometry->setDataVariance(variance);
 		if(variance == osg::Object::DYNAMIC)
 		{
 			// Assume that if it's dynamic, we'll be changing endpoints, so
 			// we'll want to use vertex buffer objects
 			geometry->setUseDisplayList(false);
-			// TODO: figure out how to "properly" use vertexBufferObjects
-			// with dynamic geometry - try to look at
-			// http://www.openscenegraph.org/projects/osg/attachment/wiki/Support/Tutorials/osgGPUMorph.3.zip
-			// ...once the openscenegraph website is working again!
-			//geometry->setUseVertexBufferObjects(true);
+			geometry->setUseVertexBufferObjects(true);
+//			// Set VBO to STREAMING since attributes are changing per frame
+//			osg::VertexBufferObject* vbo = geometry->getOrCreateVertexBufferObject();
+//			vbo->setUsage (GL_STREAM_DRAW);
 		}
-		osg::Vec3Array* verts = new osg::Vec3Array;
-		verts->push_back( p1 );
-		verts->push_back( p2 );
-		geometry->setVertexArray( verts );
+		osg::Vec3Array* vertsP;
+		if (allocateNewVertArray)
+		{
+			vertsP = new osg::Vec3Array;
+			*vertsP = verts_;
+		}
+		else vertsP = &verts_;
+		geometry->setVertexArray( vertsP );
 		osg::DrawElementsUInt* linePrimative = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
 		linePrimative->push_back(0);
 		linePrimative->push_back(1);
@@ -146,6 +149,17 @@ namespace display {
 		colors->push_back(color);
 		geometry->setStateSet(lineSS.get());
 		return geometry;
+	}
+
+	osg::ref_ptr<osg::Geometry> makeLineGeo(const osg::Vec3 p1 = osg::Vec3(0,0,0),
+			const osg::Vec3 p2 = osg::Vec3(0,0,0),
+			const osg::Vec4 color = osg::Vec4(0,0,0,1.0),
+			const osg::Object::DataVariance variance = osg::Object::UNSPECIFIED)
+	{
+		osg::ref_ptr<osg::Vec3Array> verts = new osg::Vec3Array;
+		verts->push_back(p1);
+		verts->push_back(p2);
+		return makeLineGeo(*verts, color, variance, false);
 	}
 
 	//////////////////////////////////////////////////
@@ -674,6 +688,7 @@ namespace display {
 				(*verts)[1] = osg::Vec3(p2[0], p2[1], p2[2]);
 				line->setPosition(osg::Vec3(position[0], position[1], position[2]));
 				setLineColor(line, color);
+				verts->dirty();
 				break;
 			}
 			case LandmarkAbstract::LINE_AHPL:
