@@ -52,7 +52,7 @@ namespace display {
 	{
 		osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
 		geometry->setDataVariance(osg::Object::STATIC);
-		osg::Vec3dArray* verts = new osg::Vec3dArray;
+		osg::Vec3Array* verts = new osg::Vec3Array;
 
 		if (vertPositions.size() % 3 != 0)
 		{
@@ -60,7 +60,7 @@ namespace display {
 		}
 		for(std::size_t i = 0; i < vertPositions.size(); i += 3)
 		{
-			verts->push_back( osg::Vec3d( vertPositions[i],
+			verts->push_back( osg::Vec3( vertPositions[i],
 					vertPositions[i+1],
 					vertPositions[i+2]) );
 		}
@@ -108,8 +108,8 @@ namespace display {
 	osg::ref_ptr<osg::StateSet> lineSS;
 
 	// Utility method to make a line segment
-	osg::ref_ptr<osg::Geometry> makeLineGeo(osg::Vec3d p1 = osg::Vec3d(0,0,0),
-			osg::Vec3d p2 = osg::Vec3d(0,0,0),
+	osg::ref_ptr<osg::Geometry> makeLineGeo(osg::Vec3 p1 = osg::Vec3(0,0,0),
+			osg::Vec3 p2 = osg::Vec3(0,0,0),
 			osg::Vec4d color = osg::Vec4d(0,0,0,1.0),
 			osg::Object::DataVariance variance = osg::Object::UNSPECIFIED)
 	{
@@ -132,7 +132,7 @@ namespace display {
 			// ...once the openscenegraph website is working again!
 			//geometry->setUseVertexBufferObjects(true);
 		}
-		osg::Vec3dArray* verts = new osg::Vec3dArray;
+		osg::Vec3Array* verts = new osg::Vec3Array;
 		verts->push_back( p1 );
 		verts->push_back( p2 );
 		geometry->setVertexArray( verts );
@@ -345,12 +345,12 @@ namespace display {
 	void MapOsg::createShapes()
 	{
 		// Draw the world axes
-		osg::ref_ptr<osg::Geometry> xAxis = makeLineGeo(osg::Vec3d(0,0,0),
-				osg::Vec3d(1,0,0), osg::Vec4d(.5,0,0,1), osg::Object::STATIC);
-		osg::ref_ptr<osg::Geometry> yAxis = makeLineGeo(osg::Vec3d(0,0,0),
-				osg::Vec3d(0,1,0), osg::Vec4d(0,.5,0,1), osg::Object::STATIC);
-		osg::ref_ptr<osg::Geometry> zAxis = makeLineGeo(osg::Vec3d(0,0,0),
-				osg::Vec3d(0,0,1), osg::Vec4d(0,0,.5,1), osg::Object::STATIC);
+		osg::ref_ptr<osg::Geometry> xAxis = makeLineGeo(osg::Vec3(0,0,0),
+				osg::Vec3(1,0,0), osg::Vec4d(.5,0,0,1), osg::Object::STATIC);
+		osg::ref_ptr<osg::Geometry> yAxis = makeLineGeo(osg::Vec3(0,0,0),
+				osg::Vec3(0,1,0), osg::Vec4d(0,.5,0,1), osg::Object::STATIC);
+		osg::ref_ptr<osg::Geometry> zAxis = makeLineGeo(osg::Vec3(0,0,0),
+				osg::Vec3(0,0,1), osg::Vec4d(0,0,.5,1), osg::Object::STATIC);
 		osg::ref_ptr<osg::PositionAttitudeTransform> trans = makePATransformForDrawable(xAxis);
 		osg::Geode& geode = *(trans->getChild(0)->asGeode());
 		geode.addDrawable(yAxis);
@@ -414,7 +414,7 @@ namespace display {
 	{
 		osg::PositionAttitudeTransform* geo = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
 
-		geo->setPosition(osg::Vec3d(poseQuat[0],
+		geo->setPosition(osg::Vec3(poseQuat[0],
 				poseQuat[1],
 				poseQuat[2]
 				));
@@ -496,8 +496,8 @@ namespace display {
 	{
 		colorRGB colorInt = getColor();
 		osg::Vec4d color(colorInt.R/255.0, colorInt.G/255.0, colorInt.B/255.0, 1.0);
-		osg::Vec3d p1(0,0,0);
-		osg::Vec3d p2(0,0,0);
+		osg::Vec3 p1(0,0,0);
+		osg::Vec3 p2(0,0,0);
 
 		osg::ref_ptr<osg::Geometry> lineGeo = makeLineGeo(p1, p2, color, osg::Object::DYNAMIC);
 		return makePATransformForDrawable(lineGeo);
@@ -648,7 +648,7 @@ namespace display {
 
 				// segment
 				osg::Geometry* lineGeo = line->getChild(0)->asGeode()->getDrawable(0)->asGeometry();
-				osg::Vec3dArray* verts = dynamic_cast<osg::Vec3dArray*>(lineGeo->getVertexArray());
+				osg::Vec3Array* verts = dynamic_cast<osg::Vec3Array*>(lineGeo->getVertexArray());
 
 				double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
 				jblas::vec3 position = lmkAHP::ahp2euc(state_);
@@ -660,9 +660,9 @@ namespace display {
 				positionExt = lmkAHP::ahp2euc(state);
 				jblas::vec3 p2 = positionExt - position;
 
-				(*verts)[0] = osg::Vec3d(p1[0], p1[1], p1[2]);
-				(*verts)[1] = osg::Vec3d(p2[0], p2[1], p2[2]);
-				line->setPosition(osg::Vec3d(position[0], position[1], position[2]));
+				(*verts)[0] = osg::Vec3(p1[0], p1[1], p1[2]);
+				(*verts)[1] = osg::Vec3(p2[0], p2[1], p2[2]);
+				line->setPosition(osg::Vec3(position[0], position[1], position[2]));
 				setLineColor(line, color);
 				break;
 			}
