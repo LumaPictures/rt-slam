@@ -123,6 +123,9 @@ namespace display {
 			// bufferized data
 			jblas::vec poseQuat;
 			jblas::sym_mat poseQuatUncert;
+			osg::ref_ptr<osg::Geometry> pathGeo;
+			osg::ref_ptr<osg::Vec3Array> pathPts;
+			osg::ref_ptr<osg::DrawElementsUInt> pathIndices;
 		public:
 			RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap);
 			void bufferize();

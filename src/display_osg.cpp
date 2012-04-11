@@ -126,7 +126,9 @@ namespace display {
 			// Assume that if it's dynamic, we'll be changing endpoints, so
 			// we'll want to use vertex buffer objects
 			geometry->setUseDisplayList(false);
-			geometry->setUseVertexBufferObjects(true);
+			// TODO: figure out whether we should use VBOs or not...?
+			//geometry->setUseVertexBufferObjects(true);
+			// Unsure whether to use this, if we do use VBOs...?
 //			// Set VBO to STREAMING since attributes are changing per frame
 //			osg::VertexBufferObject* vbo = geometry->getOrCreateVertexBufferObject();
 //			vbo->setUsage (GL_STREAM_DRAW);
@@ -139,9 +141,8 @@ namespace display {
 		}
 		else vertsP = &verts_;
 		geometry->setVertexArray( vertsP );
-		osg::DrawElementsUInt* linePrimative = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
-		linePrimative->push_back(0);
-		linePrimative->push_back(1);
+		osg::DrawElementsUInt* linePrimative = new osg::DrawElementsUInt(osg::PrimitiveSet::LINE_STRIP, 0);
+		for (size_t i=0; i < vertsP->size(); ++i) linePrimative->push_back(i);
 		geometry->addPrimitiveSet(linePrimative);
 		osg::Vec4Array* colors = new osg::Vec4Array;
 		geometry->setColorArray( colors );
@@ -200,6 +201,7 @@ namespace display {
 
 	void ViewerOsg::setupView(osg::ref_ptr<osgViewer::View> view)
 	{
+		// TODO: change background color
 		viewer_->setSceneData(root_);
 
 		// TOOD: disable "drifting" after drag and "fling" with mouse
@@ -395,12 +397,12 @@ namespace display {
 
 	bool RobotOsg::needCreateShapes()
 	{
-		return numShapes() != 1;
+		return numShapes() != 2;
 	}
 
 	void RobotOsg::createShapes()
 	{
-		// TODO: make osg own "module", move models there
+		// TODO: make osg own jafar "module", move models there
 		// TODO: find better way to make relative path than using
 		// env vars - either find path of executable, and make relative to that,
 		// or attach file directly to executable
@@ -429,22 +431,33 @@ namespace display {
 		transform->setDataVariance(osg::Object::DYNAMIC);
 		group->addChild(transform);
 		transform->addChild(loadedModel);
+
+		// Now add the path
+		pathPts = new osg::Vec3Array;
+		pathGeo = makeLineGeo(*pathPts, osg::Vec4f(0,1,0,1), osg::Object::DYNAMIC,
+				false);
+		pathIndices = dynamic_cast<osg::DrawElementsUInt*>(pathGeo->getPrimitiveSet(0));
+		makePATransformForDrawable(pathGeo);
 	}
 
 	void RobotOsg::refreshShapes()
 	{
-		osg::PositionAttitudeTransform* geo = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+		osg::PositionAttitudeTransform* cam = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
 
-		geo->setPosition(osg::Vec3(poseQuat[0],
-				poseQuat[1],
-				poseQuat[2]
-				));
-		geo->setAttitude(osg::Quat(
+		osg::Vec3 pos(poseQuat[0], poseQuat[1], poseQuat[2]);
+		cam->setPosition(pos);
+		cam->setAttitude(osg::Quat(
 				poseQuat[4],
 				poseQuat[5],
 				poseQuat[6],
 				poseQuat[3]
 				));
+
+		pathPts->push_back(pos);
+		pathIndices->push_back(pathIndices->size());
+		pathPts->dirty();
+		pathIndices->dirty();
+		pathGeo->dirtyBound();
 	}
 
 
@@ -689,6 +702,7 @@ namespace display {
 				line->setPosition(osg::Vec3(position[0], position[1], position[2]));
 				setLineColor(line, color);
 				verts->dirty();
+				lineGeo->dirtyBound();
 				break;
 			}
 			case LandmarkAbstract::LINE_AHPL:
