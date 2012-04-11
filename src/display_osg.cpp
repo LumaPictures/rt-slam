@@ -161,7 +161,9 @@ namespace display {
 	{
 		// load the scene.
 		root_ = new osg::Group;
-		root_->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::ON );
+		osg::StateSet* rootState = root_->getOrCreateStateSet();
+		rootState->setMode(GL_LIGHTING, osg::StateAttribute::ON );
+		rootState->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 		root_->setDataVariance(osg::Object::DYNAMIC);
 		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
 		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
@@ -186,6 +188,9 @@ namespace display {
 	{
 		viewer_->setSceneData(root_);
 
+		// TODO: pressing space in the manipulators disables the hard near/far
+		// clipping planes we set - figure out how to disable this (perhaps by
+		// setting the home position?)
 		// set up the camera manipulators.
 		{
 			osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
@@ -488,6 +493,8 @@ namespace display {
 
 	osg::ref_ptr<osg::MatrixTransform> LandmarkOsg::makeSphere()
 	{
+		// TODO: make less dense spheres (maybe don't use ShapeDrawable at all?)
+		// perhaps check out osgworks...
 		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), 1.0));
 		return makeMTransformForDrawable(sphereShape);
 	}
