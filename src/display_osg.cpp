@@ -280,9 +280,10 @@ namespace display {
 		group->removeChildren(0, group->getNumChildren());
 	}
 
-	osg::ref_ptr<osg::PositionAttitudeTransform> OsgGeoHolder::makeTransformForDrawable(osg::ref_ptr<osg::Drawable> drawable)
+	template<class TransformType>
+	osg::ref_ptr<TransformType> OsgGeoHolder::makeTransformForDrawable(osg::ref_ptr<osg::Drawable> drawable)
 	{
-		osg::ref_ptr<osg::PositionAttitudeTransform> trans = new osg::PositionAttitudeTransform;
+		osg::ref_ptr<TransformType> trans = new TransformType;
 		osg::Geode* geode = new osg::Geode();
 
 		// Make transfrom variance dynamic - if we're making a transform,
@@ -298,6 +299,17 @@ namespace display {
 
 		return trans;
 	}
+
+	osg::ref_ptr<osg::PositionAttitudeTransform> OsgGeoHolder::makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo)
+	{
+		return makeTransformForDrawable<osg::PositionAttitudeTransform>(geo);
+	}
+
+	osg::ref_ptr<osg::MatrixTransform> OsgGeoHolder::makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo)
+	{
+		return makeTransformForDrawable<osg::MatrixTransform>(geo);
+	}
+
 
 	//////////////////////////////////////////////////
 	// All DisplayDataAbstract subclasses
@@ -333,7 +345,7 @@ namespace display {
 				osg::Vec3d(0,1,0), osg::Vec4d(0,.5,0,1), osg::Object::STATIC);
 		osg::ref_ptr<osg::Geometry> zAxis = makeLineGeo(osg::Vec3d(0,0,0),
 				osg::Vec3d(0,0,1), osg::Vec4d(0,0,.5,1), osg::Object::STATIC);
-		osg::ref_ptr<osg::PositionAttitudeTransform> trans = makeTransformForDrawable(xAxis);
+		osg::ref_ptr<osg::PositionAttitudeTransform> trans = makePATransformForDrawable(xAxis);
 		osg::Geode& geode = *(trans->getChild(0)->asGeode());
 		geode.addDrawable(yAxis);
 		geode.addDrawable(zAxis);
@@ -468,11 +480,11 @@ namespace display {
 	}
 
 
-	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeSphere()
+	osg::ref_ptr<osg::MatrixTransform> LandmarkOsg::makeSphere()
 	{
 		// FIXME: figure out proper way to set sphere scale
 		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), viewerOsg->ellipsesScale/100.0));
-		return makeTransformForDrawable(sphereShape);
+		return makeMTransformForDrawable(sphereShape);
 	}
 
 	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeLine()
@@ -483,7 +495,7 @@ namespace display {
 		osg::Vec3d p2(0,0,0);
 
 		osg::ref_ptr<osg::Geometry> lineGeo = makeLineGeo(p1, p2, color, osg::Object::DYNAMIC);
-		return makeTransformForDrawable(lineGeo);
+		return makePATransformForDrawable(lineGeo);
 	}
 
 	colorRGB LandmarkOsg::getColor()
@@ -556,32 +568,33 @@ namespace display {
 		{
 			case LandmarkAbstract::PNT_EUC:
 			{
-				osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
-				sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+				osg::ref_ptr<osg::MatrixTransform> sphere;
+				sphere = group->getChild(0)->asTransform()->asMatrixTransform();
 				setSphereColor(sphere, color);
-				sphere->setPosition(osg::Vec3d(state_[0], state_[1], state_[2]));
+				osg::Matrix sphereMatrix = sphere->getMatrix();
+				sphereMatrix.setTrans(state_[0], state_[1], state_[2]);
+				sphere->setMatrix(sphereMatrix);
 				break;
 			}
 			case LandmarkAbstract::PNT_AH:
 			{
-				osg::ref_ptr<osg::PositionAttitudeTransform> sphere;
+				osg::ref_ptr<osg::MatrixTransform> sphere;
 				osg::ref_ptr<osg::PositionAttitudeTransform> line;
 
-				sphere = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+				sphere = group->getChild(0)->asTransform()->asMatrixTransform();
 				line = group->getChild(1)->asTransform()->asPositionAttitudeTransform();
 
 				// sphere
 				setSphereColor(sphere, color);
 				jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
-				sphere->setPosition(osg::Vec3d(xNew[0], xNew[1], xNew[2]));
+				osg::Matrix sphereMatrix = sphere->getMatrix();
+				sphereMatrix.setTrans(xNew[0], xNew[1], xNew[2]);
+				sphere->setMatrix(sphereMatrix);
 
 				// segment
 				osg::Geometry* lineGeo = line->getChild(0)->asGeode()->getDrawable(0)->asGeometry();
 				osg::Vec3dArray* verts = dynamic_cast<osg::Vec3dArray*>(lineGeo->getVertexArray());
 
-				// FIXME: figure out proper scaling
-				//double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
-				//double id_std = sqrt(cov_(6,6));
 				double id_std = sqrt(cov_(6,6))*viewerOsg->ellipsesScale;
 				jblas::vec3 position = lmkAHP::ahp2euc(state_);
 				jblas::vec7 state = state_;

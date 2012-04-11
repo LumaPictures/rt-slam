@@ -17,6 +17,7 @@
 
 #include <osgViewer/Viewer>
 #include <osg/PositionAttitudeTransform>
+#include <osg/MatrixTransform>
 
 #include "rtslam/display.hpp"
 
@@ -86,7 +87,12 @@ namespace display {
 			// Some utility funcs
 			unsigned int numShapes();
 			void clearShapes();
-			osg::ref_ptr<osg::PositionAttitudeTransform> makeTransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
+
+			template<class TransformType>
+			osg::ref_ptr<TransformType> makeTransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
+
+			osg::ref_ptr<osg::PositionAttitudeTransform> makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
+			osg::ref_ptr<osg::MatrixTransform> makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
 	};
 
 	class WorldOsg : public WorldDisplay, public OsgViewerHolder
@@ -158,7 +164,7 @@ namespace display {
 			inline void setSphereColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
 			inline void setLineColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b, double a = 1.0);
 			inline void setLineColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
-			osg::ref_ptr<osg::PositionAttitudeTransform> makeSphere();
+			osg::ref_ptr<osg::MatrixTransform> makeSphere();
 			osg::ref_ptr<osg::PositionAttitudeTransform> makeLine();
 	};
 
