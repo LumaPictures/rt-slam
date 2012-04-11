@@ -48,7 +48,7 @@ namespace display {
 	// ]
 	osg::ref_ptr<osg::Geometry> makeGeoFromVertFaceLists(std::vector<double> vertPositions,
 			std::vector<unsigned int> faceIndices,
-			osg::Vec4d color=osg::Vec4d(.5,.5,.5,1.0)  )
+			osg::Vec4 color=osg::Vec4(.5,.5,.5,1.0)  )
 	{
 		osg::ref_ptr<osg::Geometry> geometry = new osg::Geometry;
 		geometry->setDataVariance(osg::Object::STATIC);
@@ -89,7 +89,7 @@ namespace display {
 			geometry->addPrimitiveSet(poly);
 		}
 
-		osg::Vec4dArray* colors = new osg::Vec4dArray;
+		osg::Vec4Array* colors = new osg::Vec4Array;
 		geometry->setColorArray( colors );
 		geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
 		colors->push_back( color );
@@ -102,7 +102,7 @@ namespace display {
 			double r, double g, double b, double a = 1.0  )
 	{
 		return makeGeoFromVertFaceLists(vertPositions, faceIndices,
-				osg::Vec4d(r, g, b, a));
+				osg::Vec4(r, g, b, a));
 	}
 
 	osg::ref_ptr<osg::StateSet> lineSS;
@@ -110,7 +110,7 @@ namespace display {
 	// Utility method to make a line segment
 	osg::ref_ptr<osg::Geometry> makeLineGeo(osg::Vec3 p1 = osg::Vec3(0,0,0),
 			osg::Vec3 p2 = osg::Vec3(0,0,0),
-			osg::Vec4d color = osg::Vec4d(0,0,0,1.0),
+			osg::Vec4 color = osg::Vec4(0,0,0,1.0),
 			osg::Object::DataVariance variance = osg::Object::UNSPECIFIED)
 	{
 		if (not lineSS)
@@ -140,7 +140,7 @@ namespace display {
 		linePrimative->push_back(0);
 		linePrimative->push_back(1);
 		geometry->addPrimitiveSet(linePrimative);
-		osg::Vec4dArray* colors = new osg::Vec4dArray;
+		osg::Vec4Array* colors = new osg::Vec4Array;
 		geometry->setColorArray( colors );
 		geometry->setColorBinding( osg::Geometry::BIND_OVERALL );
 		colors->push_back(color);
@@ -188,6 +188,7 @@ namespace display {
 	{
 		viewer_->setSceneData(root_);
 
+		// TOOD: disable "drifting" after drag and "fling" with mouse
 		// TODO: pressing space in the manipulators disables the hard near/far
 		// clipping planes we set - figure out how to disable this (perhaps by
 		// setting the home position?)
@@ -349,13 +350,14 @@ namespace display {
 
 	void MapOsg::createShapes()
 	{
+		// TODO: make labels
 		// Draw the world axes
 		osg::ref_ptr<osg::Geometry> xAxis = makeLineGeo(osg::Vec3(0,0,0),
-				osg::Vec3(1,0,0), osg::Vec4d(.5,0,0,1), osg::Object::STATIC);
+				osg::Vec3(1,0,0), osg::Vec4(.5,0,0,1), osg::Object::STATIC);
 		osg::ref_ptr<osg::Geometry> yAxis = makeLineGeo(osg::Vec3(0,0,0),
-				osg::Vec3(0,1,0), osg::Vec4d(0,.5,0,1), osg::Object::STATIC);
+				osg::Vec3(0,1,0), osg::Vec4(0,.5,0,1), osg::Object::STATIC);
 		osg::ref_ptr<osg::Geometry> zAxis = makeLineGeo(osg::Vec3(0,0,0),
-				osg::Vec3(0,0,1), osg::Vec4d(0,0,.5,1), osg::Object::STATIC);
+				osg::Vec3(0,0,1), osg::Vec4(0,0,.5,1), osg::Object::STATIC);
 		osg::ref_ptr<osg::PositionAttitudeTransform> trans = makePATransformForDrawable(xAxis);
 		osg::Geode& geode = *(trans->getChild(0)->asGeode());
 		geode.addDrawable(yAxis);
@@ -461,7 +463,7 @@ namespace display {
 	{
 		osg::ShapeDrawable* shape;
 		shape = dynamic_cast<osg::ShapeDrawable*>(transform->getChild(0)->asGeode()->getDrawable(0));
-		shape->setColor(osg::Vec4d(r, g, b, a));
+		shape->setColor(osg::Vec4(r, g, b, a));
 	}
 
 	void LandmarkOsg::setSphereColor(osg::ref_ptr<osg::Group> transform, colorRGB color)
@@ -472,15 +474,15 @@ namespace display {
 	void LandmarkOsg::setLineColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b, double a)
 	{
 		osg::Geometry* geo = transform->getChild(0)->asGeode()->getDrawable(0)->asGeometry();
-		osg::Vec4dArray* colors = dynamic_cast<osg::Vec4dArray*>(geo->getColorArray());
+		osg::Vec4Array* colors = dynamic_cast<osg::Vec4Array*>(geo->getColorArray());
 		if (colors->size() != 1)
 		{
 			colors->clear();
-			colors->push_back(osg::Vec4d(r, g, b, a));
+			colors->push_back(osg::Vec4(r, g, b, a));
 		}
 		else
 		{
-			(*colors)[0] = osg::Vec4d(r, g, b, a);
+			(*colors)[0] = osg::Vec4(r, g, b, a);
 		}
 
 	}
@@ -493,6 +495,7 @@ namespace display {
 
 	osg::ref_ptr<osg::MatrixTransform> LandmarkOsg::makeSphere()
 	{
+		// TODO: make labels!
 		// TODO: make less dense spheres (maybe don't use ShapeDrawable at all?)
 		// perhaps check out osgworks...
 		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), 1.0));
@@ -502,7 +505,7 @@ namespace display {
 	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeLine()
 	{
 		colorRGB colorInt = getColor();
-		osg::Vec4d color(colorInt.R/255.0, colorInt.G/255.0, colorInt.B/255.0, 1.0);
+		osg::Vec4 color(colorInt.R/255.0, colorInt.G/255.0, colorInt.B/255.0, 1.0);
 		osg::Vec3 p1(0,0,0);
 		osg::Vec3 p2(0,0,0);
 
