@@ -24,6 +24,7 @@
 #include <osg/ShapeDrawable>
 
 #include "rtslam/ahpTools.hpp"
+#include "jmath/angle.hpp"
 
 namespace jafar {
 namespace rtslam {
@@ -160,6 +161,7 @@ namespace display {
 	{
 		// load the scene.
 		root_ = new osg::Group;
+		root_->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::ON );
 		root_->setDataVariance(osg::Object::DYNAMIC);
 		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
 		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
@@ -281,7 +283,8 @@ namespace display {
 	}
 
 	template<class TransformType>
-	osg::ref_ptr<TransformType> OsgGeoHolder::makeTransformForDrawable(osg::ref_ptr<osg::Drawable> drawable)
+	osg::ref_ptr<TransformType> OsgGeoHolder::makeTransformForDrawable(osg::ref_ptr<osg::Drawable> drawable,
+			bool addToGroup)
 	{
 		osg::ref_ptr<TransformType> trans = new TransformType;
 		osg::Geode* geode = new osg::Geode();
@@ -293,21 +296,24 @@ namespace display {
 		osg::Object::DataVariance shapeVar = drawable->getDataVariance();
 		geode->setDataVariance(shapeVar);
 
-		group->addChild(trans);
 		trans->addChild(geode);
 		geode->addDrawable(drawable);
+
+		if (addToGroup) group->addChild(trans);
 
 		return trans;
 	}
 
-	osg::ref_ptr<osg::PositionAttitudeTransform> OsgGeoHolder::makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo)
+	osg::ref_ptr<osg::PositionAttitudeTransform> OsgGeoHolder::makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo,
+			bool addToGroup)
 	{
-		return makeTransformForDrawable<osg::PositionAttitudeTransform>(geo);
+		return makeTransformForDrawable<osg::PositionAttitudeTransform>(geo, addToGroup);
 	}
 
-	osg::ref_ptr<osg::MatrixTransform> OsgGeoHolder::makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo)
+	osg::ref_ptr<osg::MatrixTransform> OsgGeoHolder::makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo,
+			bool addToGroup)
 	{
-		return makeTransformForDrawable<osg::MatrixTransform>(geo);
+		return makeTransformForDrawable<osg::MatrixTransform>(geo, addToGroup);
 	}
 
 
@@ -482,8 +488,7 @@ namespace display {
 
 	osg::ref_ptr<osg::MatrixTransform> LandmarkOsg::makeSphere()
 	{
-		// FIXME: figure out proper way to set sphere scale
-		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), viewerOsg->ellipsesScale/100.0));
+		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), 1.0));
 		return makeMTransformForDrawable(sphereShape);
 	}
 
@@ -497,6 +502,61 @@ namespace display {
 		osg::ref_ptr<osg::Geometry> lineGeo = makeLineGeo(p1, p2, color, osg::Object::DYNAMIC);
 		return makePATransformForDrawable(lineGeo);
 	}
+
+	void LandmarkOsg::getEllipsoidPose(jblas::vec3 _x, jblas::sym_mat33 _xCov,
+			double _scale, osg::Matrix& matrix, bool compressed)
+	{
+		// Code adapted from modules/gdhe/src/client.cpp, Ellipsoid::set(...)
+		namespace lapack = boost::numeric::bindings::lapack;
+		jblas::vec lambda(3);
+//		jblas::mat_column_major A(ublas::project(_xCov, ublas::range(0,3), ublas::range(0,3)));
+		jblas::mat_column_major A(_xCov);
+		// SYEV is buggy to get 3d orientation... using generic GESDD instead to do svd decomposition, without using the fact that xCov is symmetric
+//		up_sym_adapt s_A(A);
+//		int ierr = lapack::syev( 'V', s_A, lambda, lapack::optimal_workspace() );
+		jblas::mat_column_major U(3, 3);
+		jblas::mat_column_major VT(3, 3);
+		int ierr = lapack::gesdd('A',A,lambda,U,VT);
+		A = U;
+
+		double dx = lambda(0) < 1e-6 ? 1e-3 : sqrt(lambda(0));
+		double dy = lambda(1) < 1e-6 ? 1e-3 : sqrt(lambda(1));
+		double dz = lambda(2) < 1e-6 ? 1e-3 : sqrt(lambda(2));
+		dx *= _scale;
+		dy *= _scale;
+		dz *= _scale;
+		if(compressed)
+		{
+			double &maxdim = (dx>dy ? (dx>dz ? dx : dz) : (dy>dz ? dy : dz));
+			double &mindim = (dx<dy ? (dx<dz ? dx : dz) : (dy<dz ? dy : dz));
+			maxdim = mindim;
+		}
+
+		matrix.makeIdentity();
+		// A gives the rotation... multiply by d* for scale
+		// osg and rtslam apparently use different row/column order
+		matrix(0,0) = dx*A(0,0);
+		matrix(1,0) = dy*A(0,1);
+		matrix(2,0) = dz*A(0,2);
+		matrix(0,1) = dx*A(1,0);
+		matrix(1,1) = dy*A(1,1);
+		matrix(2,1) = dz*A(1,2);
+		matrix(0,2) = dx*A(2,0);
+		matrix(1,2) = dy*A(2,1);
+		matrix(2,2) = dz*A(2,2);
+
+		// Then set the translation...
+		matrix.setTrans(_x[0], _x[1], _x[2]);
+	}
+
+	void LandmarkOsg::setEllipsoidPose(osg::ref_ptr<osg::MatrixTransform> sphere,
+				bool compressed)
+		{
+			jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
+			osg::Matrix mat;
+			getEllipsoidPose(xNew, pNew, viewerOsg->ellipsesScale, mat, compressed);
+			sphere->setMatrix(mat);
+		}
 
 	colorRGB LandmarkOsg::getColor()
 	{
@@ -571,9 +631,7 @@ namespace display {
 				osg::ref_ptr<osg::MatrixTransform> sphere;
 				sphere = group->getChild(0)->asTransform()->asMatrixTransform();
 				setSphereColor(sphere, color);
-				osg::Matrix sphereMatrix = sphere->getMatrix();
-				sphereMatrix.setTrans(state_[0], state_[1], state_[2]);
-				sphere->setMatrix(sphereMatrix);
+				setEllipsoidPose(sphere, false);
 				break;
 			}
 			case LandmarkAbstract::PNT_AH:
@@ -586,10 +644,7 @@ namespace display {
 
 				// sphere
 				setSphereColor(sphere, color);
-				jblas::vec xNew; jblas::sym_mat pNew; slamLmk_->reparametrize(LandmarkEuclideanPoint::size(), xNew, pNew);
-				osg::Matrix sphereMatrix = sphere->getMatrix();
-				sphereMatrix.setTrans(xNew[0], xNew[1], xNew[2]);
-				sphere->setMatrix(sphereMatrix);
+				setEllipsoidPose(sphere, true);
 
 				// segment
 				osg::Geometry* lineGeo = line->getChild(0)->asGeode()->getDrawable(0)->asGeometry();

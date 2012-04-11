@@ -89,10 +89,10 @@ namespace display {
 			void clearShapes();
 
 			template<class TransformType>
-			osg::ref_ptr<TransformType> makeTransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
+			osg::ref_ptr<TransformType> makeTransformForDrawable(osg::ref_ptr<osg::Drawable> geo, bool addToGroup=true);
 
-			osg::ref_ptr<osg::PositionAttitudeTransform> makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
-			osg::ref_ptr<osg::MatrixTransform> makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo);
+			osg::ref_ptr<osg::PositionAttitudeTransform> makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo, bool addToGroup=true);
+			osg::ref_ptr<osg::MatrixTransform> makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo, bool addToGroup=true);
 	};
 
 	class WorldOsg : public WorldDisplay, public OsgViewerHolder
@@ -166,6 +166,11 @@ namespace display {
 			inline void setLineColor(osg::ref_ptr<osg::Group> transform, colorRGB rgb);
 			osg::ref_ptr<osg::MatrixTransform> makeSphere();
 			osg::ref_ptr<osg::PositionAttitudeTransform> makeLine();
+			void getEllipsoidPose(jblas::vec3 _x, jblas::sym_mat33 _xCov,
+						double _scale, osg::Matrix& outMatrix,
+						bool compressed=false);
+			void setEllipsoidPose(osg::ref_ptr<osg::MatrixTransform> sphereTrans,
+						bool compressed=false);
 	};
 
 	class ObservationOsg : public ObservationDisplay, public OsgViewerHolder
