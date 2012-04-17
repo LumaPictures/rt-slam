@@ -1,12 +1,12 @@
 /**
  * \file display_osg.cpp
  * \date 25/03/2010
- * \author croussil
+ * \author Paul Molodowitch
  * \ingroup rtslam
  */
 #include "rtslam/display_osg.hpp"
 
-#ifdef HAVE_OSG
+#if defined(HAVE_OSG) && defined(HAVE_QT4)
 
 #include <cmath>
 #include <cstdlib>
@@ -172,7 +172,7 @@ namespace display {
 	const double ViewerOsg::FAR_CLIP = 100.0;
 
 	ViewerOsg::ViewerOsg(double _ellipsesScale):
-			ellipsesScale(_ellipsesScale)
+			ellipsesScale(_ellipsesScale), initialized_(false)
 	{
 		// load the scene.
 		root_ = new osg::Group;
@@ -183,15 +183,33 @@ namespace display {
 		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
 		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
 		//if (loadedModel) root_->addChild(loadedModel);
-		viewer_ = new osgViewer::Viewer;
-		setupView(viewer_);
-		viewer_->realize();
 	}
 
 	void ViewerOsg::render()
 	{
+		if (not initialized_) initializeWindow();
 		BaseViewerClass::render();
 		viewer_->frame();
+	}
+
+	// The initialization of the window needs to be delayed until after the creation of the
+	// QApplication, so we can't just create the ViewerQT when the ViewerOsg is created...
+	void ViewerOsg::initializeWindow()
+	{
+		osg::ref_ptr<ViewerQT> singleView = new ViewerQT;
+		OsgWidget* qtWidget = singleView.get();
+		viewer_ = singleView;
+		views_.push_back(singleView);
+
+		for(std::vector<osg::ref_ptr<osgViewer::View> >::iterator it = views_.begin();
+				it != views_.end();
+				++it)
+		{
+			setupView(*it);
+		}
+
+		initialized_ = true;
+		qtWidget->show();
 	}
 
 	osg::ref_ptr<osg::Group> ViewerOsg::root()
@@ -202,7 +220,7 @@ namespace display {
 	void ViewerOsg::setupView(osg::ref_ptr<osgViewer::View> view)
 	{
 		// TODO: change background color
-		viewer_->setSceneData(root_);
+		view->setSceneData(root_);
 
 		// TOOD: disable "drifting" after drag and "fling" with mouse
 		// TODO: pressing space in the manipulators disables the hard near/far
@@ -217,14 +235,14 @@ namespace display {
 			keyswitchManipulator->addMatrixManipulator( '3', "Flight", new osgGA::FlightManipulator() );
 			keyswitchManipulator->addMatrixManipulator( '4', "Drive", new osgGA::DriveManipulator() );
 
-			viewer_->setCameraManipulator( keyswitchManipulator.get() );
+			view->setCameraManipulator( keyswitchManipulator.get() );
 		}
 
 		// Set the near/far clipping planes
 		// By default, osg tries to manage this - this is bad for us, as we
 		// create a fair number of line segments that shoot off WAY into the
 		// distance...
-		osg::Camera* cam = viewer_->getCamera();
+		osg::Camera* cam = view->getCamera();
 		cam->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
 		double fovy, aspectRatio, zNear, zFar;
 		cam->getProjectionMatrixAsPerspective(fovy, aspectRatio, zNear, zFar);
@@ -416,7 +434,12 @@ namespace display {
 		// BSD with procfs: readlink /proc/curproc/file
 		// Windows: GetModuleFileName() with hModule = NULL
 		//
-		std::string camFile = std::getenv("JAFAR_DIR");
+		char* jafarDir = std::getenv("JAFAR_DIR");
+		if (not jafarDir)
+		{
+			JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "JAFAR_DIR environment variable not set");
+		}
+		std::string camFile = jafarDir;
 		char lastChar = camFile[camFile.size()-1];
 		if (lastChar != '/' and lastChar != '\\')
 		{
@@ -723,9 +746,11 @@ namespace display {
 	{
 	}
 
-}}}
+} //namespace display
+} //namespace rtslam
+} //namespace jafar
 
-#endif //HAVE_OSG
+#endif //HAVE_OSG && HAVE_QT4
 
 
 

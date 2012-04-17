@@ -11,7 +11,7 @@
 
 #include "jafarConfig.h"
 
-#ifdef HAVE_OSG
+#if defined(HAVE_OSG) && defined(HAVE_QT4)
 
 #define HAVE_DISP_OSG
 
@@ -20,6 +20,7 @@
 #include <osg/MatrixTransform>
 
 #include "rtslam/display.hpp"
+#include "rtslam/osgWidget.hpp"
 
 
 namespace jafar {
@@ -45,7 +46,9 @@ namespace display {
 			static const double FAR_CLIP;
 
 		protected:
-			osg::ref_ptr<osgViewer::Viewer> viewer_;
+			osg::ref_ptr<osgViewer::ViewerBase> viewer_;
+			std::vector<osg::ref_ptr<osgViewer::View> > views_;
+			bool initialized_;
 		private:
 			osg::ref_ptr<osg::Group> root_;
 
@@ -56,6 +59,7 @@ namespace display {
 			osg::ref_ptr<osg::Group> root();
 
 		protected:
+			void initializeWindow();
 			void setupView(osg::ref_ptr<osgViewer::View> view);
 	};
 
@@ -187,6 +191,6 @@ namespace display {
 
 }}}
 
-#endif //HAVE_OSG
+#endif //HAVE_OSG && HAVE_QT4
 #endif //DISPLAY_OSG__HPP_
 
