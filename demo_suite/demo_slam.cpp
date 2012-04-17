@@ -220,7 +220,7 @@ enum { iDispQt = 0,
 	iDispGdhe,
     iDispOsg,
 #if COMPOSITE_VIEW
-    iOsgViews,
+    iNumViews,
 #endif
     iRenderAll,
     iReplay,
@@ -260,7 +260,7 @@ struct option long_options[] = {
 	{"disp-3d", 2, 0, 0},
 	{"disp-osg", 2, 0, 0},
 #if COMPOSITE_VIEW
-	{"osg-views", 1, 0, 0},
+	{"num-views", 1, 0, 0},
 #endif
 	{"render-all", 2, 0, 0},
 	{"replay", 2, 0, 0},
@@ -567,7 +567,7 @@ void demo_slam_init()
 	if (intOpts[iDispOsg])
 	{
 #if COMPOSITE_VIEW
-		display::ViewerOsg *viewerOsg = new display::ViewerOsg(intOpts[iOsgViews]);
+		display::ViewerOsg *viewerOsg = new display::ViewerOsg(intOpts[iNumViews]);
 #else
 		display::ViewerOsg *viewerOsg = new display::ViewerOsg();
 #endif
@@ -1742,7 +1742,7 @@ void demo_slam_run() {
 	* --disp-2d=0/1
 	* --disp-3d=0/1
 	* --disp-osg=0/1
-	* --osg-views=1/2/3/4
+	* --num-views=1/2/3/4 (currently only affects disp-osg)
 	* --render-all=0/1 (needs --replay 1)
 	* --replay=0/1/2/3 (off/on/off no slam/on true time) (needs --data-path)
 	* --dump=0/1  (needs --data-path)
@@ -1781,7 +1781,7 @@ int main(int argc, char* const* argv)
 { try {
 
 #if COMPOSITE_VIEW
-	intOpts[iOsgViews] = 1;
+	intOpts[iNumViews] = 1;
 #endif
 	intOpts[iVerbose] = 5;
 	intOpts[iMap] = 1;
