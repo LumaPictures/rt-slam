@@ -1794,6 +1794,7 @@ int main(int argc, char* const* argv)
 	
 	while (1)
 	{
+		char* currentArg = argv[optind];
 		int c, option_index = 0;
 		c = getopt_long_only(argc, argv, "", long_options, &option_index);
 		if (c == -1) break;
@@ -1834,7 +1835,7 @@ int main(int argc, char* const* argv)
 		} else
 		{
 		    std::stringstream err;
-		    err << "Unknown option " << c;
+		    err << "Unknown option: " << currentArg;
 			JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, err.str());
 		}
 	}
