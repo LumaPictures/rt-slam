@@ -61,15 +61,20 @@ namespace display {
 			osg::ref_ptr<osgViewer::ViewerBase> viewer_;
 			std::vector<osg::ref_ptr<osgViewer::View> > views_;
 			bool initialized_;
+			std::string modelFile_;
 		private:
 			osg::ref_ptr<osg::Group> root_;
 
 		public:
 			// some configuration parameters
 #if COMPOSITE_VIEW
-			ViewerOsg(int numViews, double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
+			ViewerOsg(int numViews,
+					std::string _modelFile = "",
+					double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
 #else
-			ViewerOsg(double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
+			ViewerOsg(std::string _modelFile = "",
+					double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
+);
 #endif
 			void render();
 			osg::ref_ptr<osg::Group> root();

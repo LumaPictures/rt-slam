@@ -171,13 +171,15 @@ namespace display {
 	const double ViewerOsg::NEAR_CLIP = .01;
 	const double ViewerOsg::FAR_CLIP = 100.0;
 #if COMPOSITE_VIEW
-	ViewerOsg::ViewerOsg(int _numViews, double _ellipsesScale):
+	ViewerOsg::ViewerOsg(int _numViews, std::string _modelFile,
+			double _ellipsesScale):
 			numViews_(_numViews),
 #else
-	ViewerOsg::ViewerOsg(double _ellipsesScale):
+	ViewerOsg::ViewerOsg(std::string _modelFile, double _ellipsesScale):
 #endif
 			ellipsesScale(_ellipsesScale),
-			initialized_(false)
+			initialized_(false),
+			modelFile_(_modelFile)
 	{
 		// load the scene.
 		root_ = new osg::Group;
@@ -185,9 +187,15 @@ namespace display {
 		rootState->setMode(GL_LIGHTING, osg::StateAttribute::ON );
 		rootState->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 		root_->setDataVariance(osg::Object::DYNAMIC);
-		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/Developer/Projects/rtslam/cow.osg");
-		//osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile("/DevProj/AR/rt-slam//cow.osg");
-		//if (loadedModel) root_->addChild(loadedModel);
+		if (not modelFile_.empty())
+		{
+			osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(modelFile_);
+			if (not loadedModel.valid())
+			{
+				JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "number of osg views must be between 1 and 4, inclusive");
+			}
+			root_->addChild(loadedModel);
+		}
 	}
 
 	void ViewerOsg::render()

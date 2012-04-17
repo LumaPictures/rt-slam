@@ -243,7 +243,7 @@ enum { fFreq = 0, fShutter, fHeading, nFloatOpts };
 double floatOpts[nFloatOpts] = {0.0};
 const int nFirstFloatOpt = nIntOpts, nLastFloatOpt = nIntOpts+nFloatOpts-1;
 
-enum { sDataPath = 0, sConfigSetup, sConfigEstimation, sLog, nStrOpts };
+enum { sDataPath = 0, sConfigSetup, sConfigEstimation, sLog, sModel, nStrOpts };
 std::string strOpts[nStrOpts];
 const int nFirstStrOpt = nIntOpts+nFloatOpts, nLastStrOpt = nIntOpts+nFloatOpts+nStrOpts-1;
 
@@ -284,6 +284,7 @@ struct option long_options[] = {
 	{"config-setup", 1, 0, 0},
 	{"config-estimation", 1, 0, 0},
 	{"log", 1, 0, 0},
+	{"model", 1, 0, 0},
 	// breaking options
 	{"help",0,0,0},
 	{"usage",0,0,0},
@@ -509,7 +510,13 @@ void demo_slam_init()
 		if (strOpts[sLog][0] == '0') strOpts[sLog] = ""; else
 		if (strOpts[sLog][0] == '1') strOpts[sLog] = "rtslam.log";
 	}
-		
+
+	if (strOpts[sModel].size() > 1
+			and strOpts[sModel][0] == '@'
+			and strOpts[sModel][1] == '/')
+	{
+		strOpts[sModel] = strOpts[sDataPath] + strOpts[sModel].substr(1);
+	}
 		
 	// init
 	worldPtr.reset(new WorldAbstract());
@@ -567,9 +574,10 @@ void demo_slam_init()
 	if (intOpts[iDispOsg])
 	{
 #if COMPOSITE_VIEW
-		display::ViewerOsg *viewerOsg = new display::ViewerOsg(intOpts[iNumViews]);
+		display::ViewerOsg *viewerOsg = new display::ViewerOsg(intOpts[iNumViews],
+				strOpts[sModel]);
 #else
-		display::ViewerOsg *viewerOsg = new display::ViewerOsg();
+		display::ViewerOsg *viewerOsg = new display::ViewerOsg(strOpts[sModel]);
 #endif
 		worldPtr->addDisplayViewer(viewerOsg, display::ViewerOsg::id());
 	}
@@ -1743,6 +1751,7 @@ void demo_slam_run() {
 	* --disp-3d=0/1
 	* --disp-osg=0/1
 	* --num-views=1/2/3/4 (currently only affects disp-osg)
+	* --model=filename -> load a 3d model into the 3d view (currently only affects disp-osp)
 	* --render-all=0/1 (needs --replay 1)
 	* --replay=0/1/2/3 (off/on/off no slam/on true time) (needs --data-path)
 	* --dump=0/1  (needs --data-path)
