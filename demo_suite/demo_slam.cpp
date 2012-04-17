@@ -1833,7 +1833,9 @@ int main(int argc, char* const* argv)
 			}
 		} else
 		{
-			std::cerr << "Unknown option " << c << std::endl;
+		    std::stringstream err;
+		    err << "Unknown option " << c;
+			JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, err.str());
 		}
 	}
 	
