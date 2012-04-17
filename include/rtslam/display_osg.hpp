@@ -9,6 +9,11 @@
 #ifndef DISPLAY_OSG__HPP_
 #define DISPLAY_OSG__HPP_
 
+/*
+ * COMPOSITE_VIEW: allow support for a CompositeViewer osg window
+ */
+#define COMPOSITE_VIEW 1
+
 #include "jafarConfig.h"
 
 #if defined(HAVE_OSG) && defined(HAVE_QT4)
@@ -37,7 +42,14 @@ namespace display {
 	class ViewerOsg: public Viewer<WorldOsg,MapOsg,RobotOsg,SensorOsg,LandmarkOsg,ObservationOsg,boost::variant<int*> >
 	{
 		public:
+			enum ViewPosition { TOP, BOTTOM, LEFT, RIGHT,
+				TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT };
 			typedef Viewer<WorldOsg,MapOsg,RobotOsg,SensorOsg,LandmarkOsg,ObservationOsg,boost::variant<int*> > BaseViewerClass;
+
+#if COMPOSITE_VIEW
+		protected:
+			int numViews_;
+#endif
 
 		public:
 			double ellipsesScale;
@@ -54,7 +66,11 @@ namespace display {
 
 		public:
 			// some configuration parameters
+#if COMPOSITE_VIEW
+			ViewerOsg(int numViews, double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
+#else
 			ViewerOsg(double _ellipsesScale = DEFAULT_ELLIPSES_SCALE);
+#endif
 			void render();
 			osg::ref_ptr<osg::Group> root();
 

@@ -216,7 +216,26 @@ time_t rseed;
  * program parameters
  * ###########################################################################*/
 
-enum { iDispQt = 0, iDispGdhe, iDispOsg, iRenderAll, iReplay, iDump, iRandSeed, iPause, iVerbose, iMap, iRobot, iCamera, iTrigger, iGps, iSimu, iExport, nIntOpts };
+enum { iDispQt = 0,
+	iDispGdhe,
+    iDispOsg,
+#if COMPOSITE_VIEW
+    iOsgViews,
+#endif
+    iRenderAll,
+    iReplay,
+    iDump,
+    iRandSeed,
+    iPause,
+    iVerbose,
+    iMap,
+    iRobot,
+    iCamera,
+    iTrigger,
+    iGps,
+    iSimu,
+    iExport,
+    nIntOpts };
 int intOpts[nIntOpts] = {0};
 const int nFirstIntOpt = 0, nLastIntOpt = nIntOpts-1;
 
@@ -240,6 +259,9 @@ struct option long_options[] = {
 	{"disp-2d", 2, 0, 0},
 	{"disp-3d", 2, 0, 0},
 	{"disp-osg", 2, 0, 0},
+#if COMPOSITE_VIEW
+	{"osg-views", 1, 0, 0},
+#endif
 	{"render-all", 2, 0, 0},
 	{"replay", 2, 0, 0},
 	{"dump", 2, 0, 0},
@@ -544,7 +566,11 @@ void demo_slam_init()
 	#ifdef HAVE_DISP_OSG
 	if (intOpts[iDispOsg])
 	{
+#if COMPOSITE_VIEW
+		display::ViewerOsg *viewerOsg = new display::ViewerOsg(intOpts[iOsgViews]);
+#else
 		display::ViewerOsg *viewerOsg = new display::ViewerOsg();
+#endif
 		worldPtr->addDisplayViewer(viewerOsg, display::ViewerOsg::id());
 	}
 	#endif
@@ -1715,6 +1741,8 @@ void demo_slam_run() {
 	* Program options:
 	* --disp-2d=0/1
 	* --disp-3d=0/1
+	* --disp-osg=0/1
+	* --osg-views=1/2/3/4
 	* --render-all=0/1 (needs --replay 1)
 	* --replay=0/1/2/3 (off/on/off no slam/on true time) (needs --data-path)
 	* --dump=0/1  (needs --data-path)
@@ -1752,6 +1780,9 @@ void demo_slam_run() {
 int main(int argc, char* const* argv)
 { try {
 
+#if COMPOSITE_VIEW
+	intOpts[iOsgViews] = 1;
+#endif
 	intOpts[iVerbose] = 5;
 	intOpts[iMap] = 1;
 	intOpts[iCamera] = 1;

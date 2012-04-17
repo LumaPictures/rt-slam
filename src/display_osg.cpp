@@ -170,9 +170,14 @@ namespace display {
 	const double ViewerOsg::DEFAULT_ELLIPSES_SCALE = 3.0;
 	const double ViewerOsg::NEAR_CLIP = .01;
 	const double ViewerOsg::FAR_CLIP = 100.0;
-
+#if COMPOSITE_VIEW
+	ViewerOsg::ViewerOsg(int _numViews, double _ellipsesScale):
+			numViews_(_numViews),
+#else
 	ViewerOsg::ViewerOsg(double _ellipsesScale):
-			ellipsesScale(_ellipsesScale), initialized_(false)
+#endif
+			ellipsesScale(_ellipsesScale),
+			initialized_(false)
 	{
 		// load the scene.
 		root_ = new osg::Group;
@@ -196,10 +201,131 @@ namespace display {
 	// QApplication, so we can't just create the ViewerQT when the ViewerOsg is created...
 	void ViewerOsg::initializeWindow()
 	{
-		osg::ref_ptr<ViewerQT> singleView = new ViewerQT;
-		OsgWidget* qtWidget = singleView.get();
-		viewer_ = singleView;
-		views_.push_back(singleView);
+		OsgWidget* qtWidget;
+#if COMPOSITE_VIEW
+		if (numViews_ == 1)
+	    {
+#endif // COMPOSITE_VIEW
+			ViewerQT* singleView = new ViewerQT;
+			qtWidget = singleView;
+			viewer_ = singleView;
+			views_.push_back(singleView);
+#if COMPOSITE_VIEW
+	    }
+		else if (numViews_ <= 4 and numViews_ > 0)
+		{
+			CompositeViewerQT* compositeView = new CompositeViewerQT;
+			qtWidget = compositeView;
+			viewer_ = compositeView;
+
+	        unsigned int winWidth = compositeView->width();
+	        unsigned int winHeight = compositeView->height();
+
+	        std::vector<ViewPosition> viewPositions;
+
+	        switch(numViews_)
+	        {
+	        case 2:
+//	        	viewPositions.push_back(TOP);
+//	        	viewPositions.push_back(BOTTOM);
+	        	viewPositions.push_back(LEFT);
+	        	viewPositions.push_back(RIGHT);
+	        	break;
+	        case 3:
+//	        	viewPositions.push_back(TOP);
+//	        	viewPositions.push_back(BOTTOM_LEFT);
+	        	viewPositions.push_back(LEFT);
+	        	viewPositions.push_back(TOP_RIGHT);
+	        	viewPositions.push_back(BOTTOM_RIGHT);
+	        	break;
+	        case 4:
+	        	viewPositions.push_back(TOP_LEFT);
+	        	viewPositions.push_back(TOP_RIGHT);
+	        	viewPositions.push_back(BOTTOM_LEFT);
+	        	viewPositions.push_back(BOTTOM_RIGHT);
+	        	break;
+	        }
+
+
+	        for (std::vector<ViewPosition>::iterator viewPosIt = viewPositions.begin();
+	        		viewPosIt != viewPositions.end();
+	        		++viewPosIt)
+
+	        {
+	            osgViewer::View* newView = new osgViewer::View;
+	            ViewPosition currentPos = *viewPosIt;
+	            int viewLeft;
+	            int viewBottom;
+	            int viewWidth;
+	            int viewHeight;
+	            switch(currentPos)
+	            {
+	            case BOTTOM:
+	            	viewLeft = 0;
+	            	viewWidth = winWidth;
+	            	viewBottom = 1;
+	            	viewHeight = winHeight / 2;
+	            	break;
+	            case TOP:
+	            	viewLeft = 0;
+	            	viewWidth = winWidth;
+	            	viewBottom = winHeight / 2;
+	            	viewHeight = winHeight - winHeight / 2;  // include the extra pixel if height is an odd number
+	            	break;
+	            case LEFT:
+	            	viewLeft = 0;
+	            	viewWidth = winWidth / 2;
+	            	viewBottom = 0;
+	            	viewHeight = winHeight;
+	            	break;
+	            case RIGHT:
+	            	viewLeft = winWidth / 2;
+	            	viewWidth = winWidth - winWidth / 2;
+	            	viewBottom = 0;
+	            	viewHeight = winHeight;
+	            	break;
+	            case BOTTOM_LEFT:
+	            	viewLeft = 0;
+	            	viewWidth = winWidth / 2;
+	            	viewBottom = 0;
+	            	viewHeight = winHeight / 2;
+	            	break;
+	            case BOTTOM_RIGHT:
+	            	viewLeft = winWidth / 2;
+	            	viewWidth = winWidth - winWidth / 2;
+	            	viewBottom = 0;
+	            	viewHeight = winHeight / 2;
+	            	break;
+	            case TOP_LEFT:
+	            	viewLeft = 0;
+	            	viewWidth = winWidth / 2;
+	            	viewBottom = winHeight / 2;
+	            	viewHeight = winHeight - winHeight / 2;
+	            	break;
+	            case TOP_RIGHT:
+	            	viewLeft = winWidth / 2;
+	            	viewWidth = winWidth - winWidth / 2;
+	            	viewBottom = winHeight / 2;
+	            	viewHeight = winHeight - winHeight / 2;
+	            	break;
+	            }
+
+	            osg::Camera* cam = newView->getCamera();
+
+	            cam->setProjectionMatrixAsPerspective(30.0f,
+	            		static_cast<double>(viewWidth)/static_cast<double>(viewHeight),
+	            		NEAR_CLIP, FAR_CLIP);
+	            cam->setViewport(viewLeft, viewBottom, viewWidth, viewHeight);
+
+	            compositeView->addView(newView);
+	            views_.push_back(newView);
+	        }
+		}
+		else
+		{
+			JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "number of osg views must be between 1 and 4, inclusive");
+		}
+#endif // COMPOSITE_VIEW
 
 		for(std::vector<osg::ref_ptr<osgViewer::View> >::iterator it = views_.begin();
 				it != views_.end();
@@ -243,6 +369,8 @@ namespace display {
 		// create a fair number of line segments that shoot off WAY into the
 		// distance...
 		osg::Camera* cam = view->getCamera();
+		OsgWidget* osgWidget = dynamic_cast<OsgWidget*>(viewer_.get());
+		cam->setGraphicsContext(osgWidget->getGraphicsWindow());
 		cam->setComputeNearFarMode(osgUtil::CullVisitor::DO_NOT_COMPUTE_NEAR_FAR);
 		double fovy, aspectRatio, zNear, zFar;
 		cam->getProjectionMatrixAsPerspective(fovy, aspectRatio, zNear, zFar);
