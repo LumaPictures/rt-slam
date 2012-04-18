@@ -23,6 +23,7 @@
 #include <osgViewer/Viewer>
 #include <osg/PositionAttitudeTransform>
 #include <osg/MatrixTransform>
+#include <osgGA/NodeTrackerManipulator>
 
 #include "rtslam/display.hpp"
 #include "rtslam/osgWidget.hpp"
@@ -53,6 +54,9 @@ namespace display {
 
 		public:
 			double ellipsesScale;
+			osg::ref_ptr<osg::Group> camTrackNode;
+			std::vector<osg::ref_ptr<osgGA::NodeTrackerManipulator> > nodeTrackManips;
+			size_t camTrackRobotId;
 			static const double DEFAULT_ELLIPSES_SCALE;
 			static const double NEAR_CLIP;
 			static const double FAR_CLIP;

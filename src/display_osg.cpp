@@ -178,11 +178,13 @@ namespace display {
 	ViewerOsg::ViewerOsg(std::string _modelFile, double _ellipsesScale):
 #endif
 			ellipsesScale(_ellipsesScale),
+			camTrackRobotId(1),
 			initialized_(false),
 			modelFile_(_modelFile)
 	{
 		// load the scene.
 		root_ = new osg::Group;
+		root_->setName("root");
 		osg::StateSet* rootState = root_->getOrCreateStateSet();
 		rootState->setMode(GL_LIGHTING, osg::StateAttribute::ON );
 		rootState->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
@@ -196,6 +198,9 @@ namespace display {
 			}
 			root_->addChild(loadedModel);
 		}
+
+		camTrackNode = new osg::Group;
+		camTrackNode->setName("camTrackNode");
 	}
 
 	void ViewerOsg::render()
@@ -316,6 +321,14 @@ namespace display {
 	            	viewBottom = winHeight / 2;
 	            	viewHeight = winHeight - winHeight / 2;
 	            	break;
+	            default:
+	            	JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "Unrecognized window placement value");
+	            	// This is just here to stop compiler warnings;
+	            	viewLeft = 0;
+	            	viewWidth = winWidth;
+	            	viewBottom = 0;
+	            	viewHeight = winHeight;
+	            	break;
 	            }
 
 	            osg::Camera* cam = newView->getCamera();
@@ -364,10 +377,17 @@ namespace display {
 		{
 			osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
 
+			osg::ref_ptr<osgGA::NodeTrackerManipulator> nodeTrackManip = new osgGA::NodeTrackerManipulator();
+			nodeTrackManips.push_back(nodeTrackManip);
+//			nodeTrackManip->setHomePosition(osg::Vec3(-.00001, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
+			nodeTrackManip->setHomePosition(osg::Vec3(-.05, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
+			nodeTrackManip->setTrackerMode(osgGA::NodeTrackerManipulator::NODE_CENTER_AND_ROTATION);
+
 			keyswitchManipulator->addMatrixManipulator( '1', "Terrain", new osgGA::TerrainManipulator() );
 			keyswitchManipulator->addMatrixManipulator( '2', "Trackball", new osgGA::TrackballManipulator() );
-			keyswitchManipulator->addMatrixManipulator( '3', "Flight", new osgGA::FlightManipulator() );
-			keyswitchManipulator->addMatrixManipulator( '4', "Drive", new osgGA::DriveManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '3', "FollowCam", nodeTrackManip );
+			keyswitchManipulator->addMatrixManipulator( '4', "Flight", new osgGA::FlightManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '5', "Drive", new osgGA::DriveManipulator() );
 
 			view->setCameraManipulator( keyswitchManipulator.get() );
 		}
@@ -425,6 +445,7 @@ namespace display {
 		OsgViewerHolder(_viewer)
 	{
 		group = new osg::Group;
+		group->setName("OsgGeoHolderGroup");
 		group->setDataVariance(osg::Object::DYNAMIC);
 		viewerOsg->root()->addChild(group);
 	}
@@ -587,9 +608,20 @@ namespace display {
 
 		osg::ref_ptr<osg::PositionAttitudeTransform> transform;
 		transform = new osg::PositionAttitudeTransform;
+		transform->setName("RobotTransform");
 		transform->setDataVariance(osg::Object::DYNAMIC);
 		group->addChild(transform);
 		transform->addChild(loadedModel);
+		if(viewerOsg->camTrackRobotId == slamRob_->id())
+		{
+			transform->addChild(viewerOsg->camTrackNode);
+			for(std::vector<osg::ref_ptr<osgGA::NodeTrackerManipulator> >::iterator it = viewerOsg->nodeTrackManips.begin();
+					it != viewerOsg->nodeTrackManips.end();
+					++it)
+			{
+				(*it)->setTrackNode(viewerOsg->camTrackNode);
+			}
+		}
 
 		// Now add the path
 		pathPts = new osg::Vec3Array;
