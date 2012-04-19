@@ -656,8 +656,8 @@ namespace display {
 					++it)
 			{
 				(*it)->setTrackNode(viewerOsg->camTrackNode);
-				transform->addCullCallback(new TrackNodeCullCallback(viewerOsg->camTrackNode));
 			}
+			transform->addCullCallback(new TrackNodeCullCallback(viewerOsg->camTrackNode));
 		}
 
 		// Now add the path
