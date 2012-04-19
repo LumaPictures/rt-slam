@@ -20,6 +20,7 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <osgGA/KeySwitchMatrixManipulator>
 #include <osg/Geode>
+#include <osg/CullFace>
 #include <osg/ApplicationUsage>
 #include <osg/ShapeDrawable>
 
@@ -188,6 +189,10 @@ namespace display {
 		osg::StateSet* rootState = root_->getOrCreateStateSet();
 		rootState->setMode(GL_LIGHTING, osg::StateAttribute::ON );
 		rootState->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
+		osg::ref_ptr<osg::CullFace> cull = new osg::CullFace;
+		cull->setMode(osg::CullFace::BACK);
+		rootState->setAttributeAndModes(cull);
+		//rootState->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
 		root_->setDataVariance(osg::Object::DYNAMIC);
 		if (not modelFile_.empty())
 		{
@@ -603,8 +608,16 @@ namespace display {
 			camFile += "/";
 		}
 		camFile += "modules/rtslam/data/models/camera.osg";
-		osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(camFile);
+		osg::ref_ptr<osg::Group> loadedModel = osgDB::readNodeFile(camFile)->asGroup();
 		loadedModel->setDataVariance(osg::Object::STATIC);
+		// The loaded model has a stateset that disables backface culling -
+		// set it to inherit
+		for(int childNum = 0; childNum < loadedModel->getNumChildren(); ++childNum)
+		{
+			osg::StateSet* ss = loadedModel->getChild(childNum)->getStateSet();
+			if (ss == NULL) continue;
+			ss->setMode(GL_CULL_FACE, osg::StateAttribute::INHERIT);
+		}
 
 		osg::ref_ptr<osg::PositionAttitudeTransform> transform;
 		transform = new osg::PositionAttitudeTransform;
