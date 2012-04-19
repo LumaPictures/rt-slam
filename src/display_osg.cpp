@@ -254,13 +254,13 @@ namespace display {
 		osgViewer::View* view = dynamic_cast<osgViewer::View*>(cullVisitor->getCurrentCamera()->getView());
 		if (view == NULL) return true;
 		osgGA::CameraManipulator* baseManip = view->getCameraManipulator();
-		osgGA::NodeTrackerManipulator* trackManip = dynamic_cast<osgGA::NodeTrackerManipulator*>(baseManip);
+		LookThroughManipulator* trackManip = dynamic_cast<LookThroughManipulator*>(baseManip);
 		if (trackManip == NULL)
 		{
 			// Check if we have a KeySwitchMatrixManipulator which is currently set to use a NodeTrackerManipulator
 			osgGA::KeySwitchMatrixManipulator* switchManip = dynamic_cast<osgGA::KeySwitchMatrixManipulator*>(baseManip);
 			if (switchManip == NULL) return true;
-			trackManip = dynamic_cast<osgGA::NodeTrackerManipulator*>(switchManip->getCurrentMatrixManipulator());
+			trackManip = dynamic_cast<LookThroughManipulator*>(switchManip->getCurrentMatrixManipulator());
 			if (trackManip == NULL) return true;
 		}
 		return (trackManip->getTrackNode() != trackNode_.get());
