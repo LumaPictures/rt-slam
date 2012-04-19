@@ -164,6 +164,74 @@ namespace display {
 	}
 
 	//////////////////////////////////////////////////
+	// Manipulators
+	//////////////////////////////////////////////////
+
+	LookThroughManipulator::LookThroughManipulator(const osg::Quat& rotation)
+	{
+		_distance = 0;
+		_rotation = rotation;
+	}
+
+	void LookThroughManipulator::setByMatrix(const osg::Matrixd& matrix)
+	{}
+
+	void LookThroughManipulator::setTransformation( const osg::Vec3d& eye, const osg::Quat& rotation )
+	{}
+
+	void LookThroughManipulator::setTransformation( const osg::Vec3d& eye, const osg::Vec3d& center, const osg::Vec3d& up )
+	{}
+
+	osg::Matrixd LookThroughManipulator::getMatrix() const
+	{
+	    osg::Vec3d nodeCenter;
+	    osg::Quat nodeRotation;
+	    computeNodeCenterAndRotation(nodeCenter,nodeRotation);
+	    return osg::Matrixd::rotate(_rotation)*osg::Matrixd::rotate(nodeRotation)*osg::Matrix::translate(nodeCenter);
+	}
+
+
+	osg::Matrixd LookThroughManipulator::getInverseMatrix() const
+	{
+	    osg::Vec3d nodeCenter;
+	    osg::Quat nodeRotation;
+	    computeNodeCenterAndRotation(nodeCenter,nodeRotation);
+	    return osg::Matrixd::translate(-nodeCenter)*osg::Matrixd::rotate(nodeRotation.inverse())*osg::Matrixd::rotate(_rotation.inverse());
+	}
+
+	void LookThroughManipulator::home(double currentTime)
+	{}
+
+	void LookThroughManipulator::computePosition(const osg::Vec3d& eye,const osg::Vec3d& center,const osg::Vec3d& up)
+	{}
+
+
+	bool LookThroughManipulator::performMovementLeftMouseButton( const double eventTimeDelta, const double dx, const double dy )
+	{
+		return true;
+	}
+
+
+	bool LookThroughManipulator::performMovementMiddleMouseButton( const double eventTimeDelta, const double dx, const double dy )
+	{
+		return true;
+	}
+
+
+	bool LookThroughManipulator::performMovementRightMouseButton( const double eventTimeDelta, const double dx, const double dy )
+	{
+		return true;
+	}
+
+	void LookThroughManipulator::rotateTrackball( const float px0, const float py0,
+			const float px1, const float py1, const float scale )
+	{}
+
+	void LookThroughManipulator::setRotation( const osg::Quat& rotation )
+	{}
+
+
+	//////////////////////////////////////////////////
 	// Callbacks
 	//////////////////////////////////////////////////
 
@@ -413,20 +481,29 @@ namespace display {
 		{
 			osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
 
-			osg::ref_ptr<osgGA::NodeTrackerManipulator> nodeTrackManip = new osgGA::NodeTrackerManipulator();
-			nodeTrackManips.push_back(nodeTrackManip);
-			nodeTrackManip->setHomePosition(osg::Vec3(-.00001, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
-//			nodeTrackManip->setHomePosition(osg::Vec3(-.05, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
-			nodeTrackManip->setTrackerMode(osgGA::NodeTrackerManipulator::NODE_CENTER_AND_ROTATION);
-
-
 			osg::ref_ptr<osgGA::TrackballManipulator> trackballFixedUpManip = new osgGA::TrackballManipulator();
 			trackballFixedUpManip->setVerticalAxisFixed(true);
+
+			osg::ref_ptr<LookThroughManipulator> lookThroughManip = new LookThroughManipulator(osg::Quat(
+					-PI*0.5, osg::Vec3(0.0,1.0,0.0),
+					 PI*0.5, osg::Vec3(1.0,0.0,0.0),
+					    0.0, osg::Vec3(0.0,0.0,1.0)
+					));
+			nodeTrackManips.push_back(lookThroughManip);
+			lookThroughManip->setTrackerMode(osgGA::NodeTrackerManipulator::NODE_CENTER_AND_ROTATION);
+
+			osg::ref_ptr<osgGA::NodeTrackerManipulator> followManip = new osgGA::NodeTrackerManipulator();
+			nodeTrackManips.push_back(followManip);
+			followManip->setTrackerMode(osgGA::NodeTrackerManipulator::NODE_CENTER_AND_ROTATION);
+//			followManip->setHomePosition(osg::Vec3(-.00001, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
+			followManip->setHomePosition(osg::Vec3(-.15, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 
 			keyswitchManipulator->addMatrixManipulator( '1', "Trackball (Fixed Up)", trackballFixedUpManip );
 			keyswitchManipulator->addMatrixManipulator( '2', "Trackball (Free)", new osgGA::TrackballManipulator() );
 			keyswitchManipulator->addMatrixManipulator( '3', "Terrain", new osgGA::TerrainManipulator() );
-			keyswitchManipulator->addMatrixManipulator( '4', "FollowCam", nodeTrackManip );
+			keyswitchManipulator->addMatrixManipulator( '4', "Look Through Camera", lookThroughManip );
+			keyswitchManipulator->addMatrixManipulator( '5', "Follow Camera", followManip );
+			keyswitchManipulator->setHomePosition(osg::Vec3(-2.0, 1.0, 1.0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 
 			view->setCameraManipulator( keyswitchManipulator.get() );
 		}

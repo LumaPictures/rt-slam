@@ -33,6 +33,14 @@ namespace jafar {
 namespace rtslam {
 namespace display {
 
+	// Could do
+	// #define _USE_MATH_DEFINES
+	// #include <cmath>
+	// ...but that requires that nobody else have already included cmath,
+	// without first having set _USE_MATH_DEFINES
+	// Rather than relying on this, just define our own...
+	const double PI = std::atan(1.0)*4;
+
 	class WorldOsg;
 	class MapOsg;
 	class RobotOsg;
@@ -40,6 +48,28 @@ namespace display {
 	class LandmarkOsg;
 	class ObservationOsg;
 	
+	// Easiest way to get a 'locked' NodeTrackerManipulator is to inherit from
+	// it, then disable the ability to orbit... not exactly the prettiest
+	// way of doing it, though...
+	class LookThroughManipulator : public osgGA::NodeTrackerManipulator
+	{
+		public:
+			LookThroughManipulator(const osg::Quat& rotation);
+			void setByMatrix(const osg::Matrixd& matrix);
+			void setTransformation( const osg::Vec3d& eye, const osg::Quat& rotation );
+			void setTransformation( const osg::Vec3d& eye, const osg::Vec3d& center, const osg::Vec3d& up );
+			osg::Matrixd getMatrix() const;
+			osg::Matrixd getInverseMatrix() const;
+			void home(double currentTime);
+			void computePosition(const osg::Vec3d& eye,const osg::Vec3d& center,const osg::Vec3d& up);
+			bool performMovementLeftMouseButton( const double eventTimeDelta, const double dx, const double dy );
+			bool performMovementMiddleMouseButton( const double eventTimeDelta, const double dx, const double dy );
+			bool performMovementRightMouseButton( const double eventTimeDelta, const double dx, const double dy );
+			void rotateTrackball( const float px0, const float py0,
+					const float px1, const float py1, const float scale );
+			void setRotation( const osg::Quat& rotation );
+	};
+
     class TrackNodeCullCallback : public osg::NodeCallback
     {
     	protected:
