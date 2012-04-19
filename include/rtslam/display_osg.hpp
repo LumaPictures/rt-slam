@@ -40,6 +40,17 @@ namespace display {
 	class LandmarkOsg;
 	class ObservationOsg;
 	
+    class TrackNodeCullCallback : public osg::NodeCallback
+    {
+    	protected:
+    		osg::ref_ptr<osg::Node> trackNode_;
+
+		public:
+			TrackNodeCullCallback(osg::ref_ptr<osg::Node> _trackNode);
+			virtual void operator()(osg::Node* node, osg::NodeVisitor* nv);
+			bool doTraverse(osg::NodeVisitor* nv);
+    };
+
 	class ViewerOsg: public Viewer<WorldOsg,MapOsg,RobotOsg,SensorOsg,LandmarkOsg,ObservationOsg,boost::variant<int*> >
 	{
 		public:

@@ -20,7 +20,6 @@
 #include <osgViewer/ViewerEventHandlers>
 #include <osgGA/KeySwitchMatrixManipulator>
 #include <osg/Geode>
-#include <osg/CullFace>
 #include <osg/ApplicationUsage>
 #include <osg/ShapeDrawable>
 
@@ -165,6 +164,42 @@ namespace display {
 	}
 
 	//////////////////////////////////////////////////
+	// Callbacks
+	//////////////////////////////////////////////////
+
+	TrackNodeCullCallback::TrackNodeCullCallback(osg::ref_ptr<osg::Node> _trackNode):
+						trackNode_(_trackNode)
+	{}
+
+	void TrackNodeCullCallback::operator()(osg::Node* node, osg::NodeVisitor* nv)
+	{
+		if (doTraverse(nv))
+		{
+			traverse(node, nv);
+		}
+	}
+
+	bool TrackNodeCullCallback::doTraverse(osg::NodeVisitor* nv)
+	{
+		osgUtil::CullVisitor* cullVisitor = dynamic_cast<osgUtil::CullVisitor*>(nv);
+		if (cullVisitor == NULL) return true;
+		osgViewer::View* view = dynamic_cast<osgViewer::View*>(cullVisitor->getCurrentCamera()->getView());
+		if (view == NULL) return true;
+		osgGA::CameraManipulator* baseManip = view->getCameraManipulator();
+		osgGA::NodeTrackerManipulator* trackManip = dynamic_cast<osgGA::NodeTrackerManipulator*>(baseManip);
+		if (trackManip == NULL)
+		{
+			// Check if we have a KeySwitchMatrixManipulator which is currently set to use a NodeTrackerManipulator
+			osgGA::KeySwitchMatrixManipulator* switchManip = dynamic_cast<osgGA::KeySwitchMatrixManipulator*>(baseManip);
+			if (switchManip == NULL) return true;
+			trackManip = dynamic_cast<osgGA::NodeTrackerManipulator*>(switchManip->getCurrentMatrixManipulator());
+			if (trackManip == NULL) return true;
+		}
+		return (trackManip->getTrackNode() != trackNode_.get());
+	}
+
+
+	//////////////////////////////////////////////////
 	// ViewerOsg
 	//////////////////////////////////////////////////
 
@@ -189,10 +224,6 @@ namespace display {
 		osg::StateSet* rootState = root_->getOrCreateStateSet();
 		rootState->setMode(GL_LIGHTING, osg::StateAttribute::ON );
 		rootState->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
-		osg::ref_ptr<osg::CullFace> cull = new osg::CullFace;
-		cull->setMode(osg::CullFace::BACK);
-		rootState->setAttributeAndModes(cull);
-		//rootState->setMode(GL_CULL_FACE, osg::StateAttribute::ON);
 		root_->setDataVariance(osg::Object::DYNAMIC);
 		if (not modelFile_.empty())
 		{
@@ -610,14 +641,6 @@ namespace display {
 		camFile += "modules/rtslam/data/models/camera.osg";
 		osg::ref_ptr<osg::Group> loadedModel = osgDB::readNodeFile(camFile)->asGroup();
 		loadedModel->setDataVariance(osg::Object::STATIC);
-		// The loaded model has a stateset that disables backface culling -
-		// set it to inherit
-		for(int childNum = 0; childNum < loadedModel->getNumChildren(); ++childNum)
-		{
-			osg::StateSet* ss = loadedModel->getChild(childNum)->getStateSet();
-			if (ss == NULL) continue;
-			ss->setMode(GL_CULL_FACE, osg::StateAttribute::INHERIT);
-		}
 
 		osg::ref_ptr<osg::PositionAttitudeTransform> transform;
 		transform = new osg::PositionAttitudeTransform;
@@ -633,6 +656,7 @@ namespace display {
 					++it)
 			{
 				(*it)->setTrackNode(viewerOsg->camTrackNode);
+				transform->addCullCallback(new TrackNodeCullCallback(viewerOsg->camTrackNode));
 			}
 		}
 
