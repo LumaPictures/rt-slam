@@ -415,8 +415,8 @@ namespace display {
 
 			osg::ref_ptr<osgGA::NodeTrackerManipulator> nodeTrackManip = new osgGA::NodeTrackerManipulator();
 			nodeTrackManips.push_back(nodeTrackManip);
-//			nodeTrackManip->setHomePosition(osg::Vec3(-.00001, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
-			nodeTrackManip->setHomePosition(osg::Vec3(-.05, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
+			nodeTrackManip->setHomePosition(osg::Vec3(-.00001, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
+//			nodeTrackManip->setHomePosition(osg::Vec3(-.05, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 			nodeTrackManip->setTrackerMode(osgGA::NodeTrackerManipulator::NODE_CENTER_AND_ROTATION);
 
 			keyswitchManipulator->addMatrixManipulator( '1', "Terrain", new osgGA::TerrainManipulator() );
@@ -642,30 +642,34 @@ namespace display {
 		osg::ref_ptr<osg::Group> loadedModel = osgDB::readNodeFile(camFile)->asGroup();
 		loadedModel->setDataVariance(osg::Object::STATIC);
 
-		osg::ref_ptr<osg::PositionAttitudeTransform> transform;
-		transform = new osg::PositionAttitudeTransform;
-		transform->setName("RobotTransform");
-		transform->setDataVariance(osg::Object::DYNAMIC);
-		group->addChild(transform);
-		transform->addChild(loadedModel);
-		if(viewerOsg->camTrackRobotId == slamRob_->id())
-		{
-			transform->addChild(viewerOsg->camTrackNode);
-			for(std::vector<osg::ref_ptr<osgGA::NodeTrackerManipulator> >::iterator it = viewerOsg->nodeTrackManips.begin();
-					it != viewerOsg->nodeTrackManips.end();
-					++it)
-			{
-				(*it)->setTrackNode(viewerOsg->camTrackNode);
-			}
-			transform->addCullCallback(new TrackNodeCullCallback(viewerOsg->camTrackNode));
-		}
+		osg::ref_ptr<osg::PositionAttitudeTransform> robotTransform;
+		robotTransform = new osg::PositionAttitudeTransform;
+		robotTransform->setName("RobotTransform");
+		robotTransform->setDataVariance(osg::Object::DYNAMIC);
+		group->addChild(robotTransform);
+		robotTransform->addChild(loadedModel);
 
 		// Now add the path
 		pathPts = new osg::Vec3Array;
 		pathGeo = makeLineGeo(*pathPts, osg::Vec4f(0,1,0,1), osg::Object::DYNAMIC,
 				false);
 		pathIndices = dynamic_cast<osg::DrawElementsUInt*>(pathGeo->getPrimitiveSet(0));
-		makePATransformForDrawable(pathGeo);
+		osg::ref_ptr<osg::PositionAttitudeTransform> pathGeoTrans = makePATransformForDrawable(pathGeo);
+
+		// If the cam is tracking the robot, don't want to show the robot geo or the path...
+		TrackNodeCullCallback* cullCallback = new TrackNodeCullCallback(viewerOsg->camTrackNode);
+		if(viewerOsg->camTrackRobotId == slamRob_->id())
+		{
+			robotTransform->addChild(viewerOsg->camTrackNode);
+			for(std::vector<osg::ref_ptr<osgGA::NodeTrackerManipulator> >::iterator it = viewerOsg->nodeTrackManips.begin();
+					it != viewerOsg->nodeTrackManips.end();
+					++it)
+			{
+				(*it)->setTrackNode(viewerOsg->camTrackNode);
+			}
+			robotTransform->addCullCallback(cullCallback);
+			pathGeoTrans->addCullCallback(cullCallback);
+		}
 	}
 
 	void RobotOsg::refreshShapes()
