@@ -419,11 +419,14 @@ namespace display {
 //			nodeTrackManip->setHomePosition(osg::Vec3(-.05, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 			nodeTrackManip->setTrackerMode(osgGA::NodeTrackerManipulator::NODE_CENTER_AND_ROTATION);
 
-			keyswitchManipulator->addMatrixManipulator( '1', "Terrain", new osgGA::TerrainManipulator() );
-			keyswitchManipulator->addMatrixManipulator( '2', "Trackball", new osgGA::TrackballManipulator() );
-			keyswitchManipulator->addMatrixManipulator( '3', "FollowCam", nodeTrackManip );
-			keyswitchManipulator->addMatrixManipulator( '4', "Flight", new osgGA::FlightManipulator() );
-			keyswitchManipulator->addMatrixManipulator( '5', "Drive", new osgGA::DriveManipulator() );
+
+			osg::ref_ptr<osgGA::TrackballManipulator> trackballFixedUpManip = new osgGA::TrackballManipulator();
+			trackballFixedUpManip->setVerticalAxisFixed(true);
+
+			keyswitchManipulator->addMatrixManipulator( '1', "Trackball (Fixed Up)", trackballFixedUpManip );
+			keyswitchManipulator->addMatrixManipulator( '2', "Trackball (Free)", new osgGA::TrackballManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '3', "Terrain", new osgGA::TerrainManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '4', "FollowCam", nodeTrackManip );
 
 			view->setCameraManipulator( keyswitchManipulator.get() );
 		}
