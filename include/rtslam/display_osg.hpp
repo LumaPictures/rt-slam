@@ -126,7 +126,7 @@ namespace display {
 
 		protected:
 			void initializeWindow();
-			void setupView(osg::ref_ptr<osgViewer::View> view);
+			void setupView(osg::ref_ptr<osgViewer::View> view, size_t viewNum);
 	};
 
 	class OsgViewerHolder

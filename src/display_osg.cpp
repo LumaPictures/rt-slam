@@ -452,11 +452,10 @@ namespace display {
 		}
 #endif // COMPOSITE_VIEW
 
-		for(std::vector<osg::ref_ptr<osgViewer::View> >::iterator it = views_.begin();
-				it != views_.end();
-				++it)
+		for(size_t i = 0; i < views_.size(); ++i)
 		{
-			setupView(*it);
+			osg::ref_ptr<osgViewer::View> view = views_[i];
+			setupView(view, i);
 		}
 
 		initialized_ = true;
@@ -468,7 +467,7 @@ namespace display {
 		return root_;
 	}
 
-	void ViewerOsg::setupView(osg::ref_ptr<osgViewer::View> view)
+	void ViewerOsg::setupView(osg::ref_ptr<osgViewer::View> view, size_t viewNum)
 	{
 		// TODO: change background color
 		view->setSceneData(root_);
@@ -506,6 +505,16 @@ namespace display {
 			keyswitchManipulator->setHomePosition(osg::Vec3(-2.0, 1.0, 1.0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 
 			view->setCameraManipulator( keyswitchManipulator.get() );
+
+			if (viewNum == 1)
+			{
+				keyswitchManipulator->selectMatrixManipulator(3);
+			}
+			else if (viewNum == 2)
+			{
+				keyswitchManipulator->selectMatrixManipulator(4);
+			}
+
 		}
 
 		// Set the near/far clipping planes
