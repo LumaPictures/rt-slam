@@ -394,7 +394,11 @@ namespace hardware {
 			r = viam_camera_sethwmode(handle, camera, &hwmode);
 			r = viam_hardware_load(handle,"dc1394");
 			
-			r = viam_hardware_attach(handle);
+			if(viam_hardware_attach(handle))
+			{
+				JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "failed to find/setup firewire camera: " << camera_id);
+			}
+
 			r = viam_bank_configure(handle, bank);
 			
 			if (hwmode.trigger != VIAM_HWTRIGGER_MODE1_HIGH)
