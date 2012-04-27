@@ -105,6 +105,37 @@ namespace display {
 				osg::Vec4(r, g, b, a));
 	}
 
+	osg::ref_ptr<osg::Group> loadGeoFile(std::string filename)
+	{
+		// TODO: make osg own jafar "module", move models there
+		// TODO: find better way to make relative path than using
+		// env vars - either find path of executable, and make relative to that,
+		// or attach file directly to executable
+		//
+		// some os-specific ways to get the current executable:
+		//
+		// Mac OS X: _NSGetExecutablePath() (man 3 dyld)
+		// Linux: readlink /proc/self/exe
+		// Solaris: getexecname()
+		// FreeBSD: sysctl CTL_KERN KERN_PROC KERN_PROC_PATHNAME -1
+		// BSD with procfs: readlink /proc/curproc/file
+		// Windows: GetModuleFileName() with hModule = NULL
+		//
+		char* jafarDir = std::getenv("JAFAR_DIR");
+		if (not jafarDir)
+		{
+			JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "JAFAR_DIR environment variable not set");
+		}
+		std::string path = jafarDir;
+		char lastChar = path[path.size()-1];
+		if (lastChar != '/' and lastChar != '\\')
+		{
+			path += "/";
+		}
+		path += "modules/rtslam/data/models/" + filename;
+		return osgDB::readNodeFile(path)->asGroup();
+	}
+
 	osg::ref_ptr<osg::StateSet> lineSS;
 
 	// Utility method to make a line segment
@@ -702,33 +733,8 @@ namespace display {
 
 	void RobotOsg::createShapes()
 	{
-		// TODO: make osg own jafar "module", move models there
-		// TODO: find better way to make relative path than using
-		// env vars - either find path of executable, and make relative to that,
-		// or attach file directly to executable
-		//
-		// some os-specific ways to get the current executable:
-		//
-		// Mac OS X: _NSGetExecutablePath() (man 3 dyld)
-		// Linux: readlink /proc/self/exe
-		// Solaris: getexecname()
-		// FreeBSD: sysctl CTL_KERN KERN_PROC KERN_PROC_PATHNAME -1
-		// BSD with procfs: readlink /proc/curproc/file
-		// Windows: GetModuleFileName() with hModule = NULL
-		//
-		char* jafarDir = std::getenv("JAFAR_DIR");
-		if (not jafarDir)
-		{
-			JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "JAFAR_DIR environment variable not set");
-		}
-		std::string camFile = jafarDir;
-		char lastChar = camFile[camFile.size()-1];
-		if (lastChar != '/' and lastChar != '\\')
-		{
-			camFile += "/";
-		}
-		camFile += "modules/rtslam/data/models/camera.osg";
-		osg::ref_ptr<osg::Group> loadedModel = osgDB::readNodeFile(camFile)->asGroup();
+		// Add the geo for the robot
+		osg::ref_ptr<osg::Group> loadedModel = loadGeoFile("cameraFlea3.osg");
 		loadedModel->setDataVariance(osg::Object::STATIC);
 
 		osg::ref_ptr<osg::PositionAttitudeTransform> robotTransform;
