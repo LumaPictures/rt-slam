@@ -758,9 +758,9 @@ namespace display {
 		osg::ref_ptr<osg::PositionAttitudeTransform> pathGeoTrans = makePATransformForDrawable(pathGeo);
 
 		// If the cam is tracking the robot, don't want to show the robot geo or the path...
-		TrackNodeCullCallback* cullCallback = new TrackNodeCullCallback(viewerOsg->camTrackNode);
 		if(viewerOsg->camTrackRobotId == slamRob_->id())
 		{
+			TrackNodeCullCallback* cullCallback = new TrackNodeCullCallback(viewerOsg->camTrackNode);
 			robotTransform->addChild(viewerOsg->camTrackNode);
 			for(std::vector<osg::ref_ptr<osgGA::NodeTrackerManipulator> >::iterator it = viewerOsg->nodeTrackManips.begin();
 					it != viewerOsg->nodeTrackManips.end();
@@ -820,6 +820,13 @@ namespace display {
 		sensorTransform->setDataVariance(osg::Object::DYNAMIC);
 		group->addChild(sensorTransform);
 		sensorTransform->addChild(loadedModel);
+
+		// If the cam is tracking the robot, don't want to show the sensor geo
+		if(viewerOsg->camTrackRobotId == slamSen_->robotPtr()->id())
+		{
+			TrackNodeCullCallback* cullCallback = new TrackNodeCullCallback(viewerOsg->camTrackNode);
+			sensorTransform->addCullCallback(cullCallback);
+		}
 	}
 
 	void SensorOsg::refreshShapes()
