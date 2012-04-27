@@ -27,7 +27,17 @@
 
 #include "rtslam/display.hpp"
 #include "rtslam/osgWidget.hpp"
+#include "rtslam/robotInertial.hpp"
 
+//////////////////////////////////////////////////
+// Utilities / Macros
+//////////////////////////////////////////////////
+
+// Macro which returns whether the given pointer can be cast to a pointer of the
+// given type.
+// Only works on classes with RTTI (ie, classes with virtual members)
+// For safety, considers null pointers as not castable to any type
+#define isCastableTo(ptr, testType) ( dynamic_cast<testType>(ptr) == NULL ? false : true )
 
 namespace jafar {
 namespace rtslam {
@@ -196,6 +206,7 @@ namespace display {
 			osg::ref_ptr<osg::Geometry> pathGeo;
 			osg::ref_ptr<osg::Vec3Array> pathPts;
 			osg::ref_ptr<osg::DrawElementsUInt> pathIndices;
+			bool isInertial_;
 		public:
 			RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap);
 			void bufferize();
@@ -205,12 +216,17 @@ namespace display {
 			virtual void refreshShapes();
 	};
 
-	class SensorOsg : public SensorDisplay, public OsgViewerHolder
+	class SensorOsg : public SensorDisplay, public OsgGeoHolder
 	{
+		protected:
+			jblas::vec poseQuat;
 		public:
 			SensorOsg(ViewerAbstract *_viewer, rtslam::SensorExteroAbstract *_slamSen, RobotOsg *_dispRob);
-			void bufferize() {}
-			void render() {}
+			void bufferize();
+		protected:
+			virtual bool needCreateShapes();
+			virtual void createShapes();
+			virtual void refreshShapes();
 	};
 
 	class LandmarkOsg : public LandmarkDisplay, public OsgGeoHolder

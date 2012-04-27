@@ -717,8 +717,10 @@ namespace display {
 	}
 
 	RobotOsg::RobotOsg(ViewerAbstract *_viewer, rtslam::RobotAbstract *_slamRob, MapOsg *_dispMap):
-		RobotDisplay(_viewer, _slamRob, _dispMap), OsgGeoHolder(_viewer)
-	{}
+		RobotDisplay(_viewer, _slamRob, _dispMap), OsgGeoHolder(_viewer),
+		isInertial_(isCastableTo(slamRob_, RobotInertial*))
+	{
+	}
 
 	void RobotOsg::bufferize()
 	{
@@ -733,8 +735,11 @@ namespace display {
 
 	void RobotOsg::createShapes()
 	{
+		std::string geoFilename;
 		// Add the geo for the robot
-		osg::ref_ptr<osg::Group> loadedModel = loadGeoFile("cameraFlea3.osg");
+		if (isInertial_) geoFilename = "MTi.osg";
+		else geoFilename = "axes_color.osg";
+		osg::ref_ptr<osg::Group> loadedModel = loadGeoFile(geoFilename);
 		loadedModel->setDataVariance(osg::Object::STATIC);
 
 		osg::ref_ptr<osg::PositionAttitudeTransform> robotTransform;
@@ -743,6 +748,7 @@ namespace display {
 		robotTransform->setDataVariance(osg::Object::DYNAMIC);
 		group->addChild(robotTransform);
 		robotTransform->addChild(loadedModel);
+		if (not isInertial_) robotTransform->setScale(osg::Vec3d(.1, .1, .1));
 
 		// Now add the path
 		pathPts = new osg::Vec3Array;
@@ -769,11 +775,11 @@ namespace display {
 
 	void RobotOsg::refreshShapes()
 	{
-		osg::PositionAttitudeTransform* cam = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+		osg::PositionAttitudeTransform* robot = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
 
 		osg::Vec3 pos(poseQuat[0], poseQuat[1], poseQuat[2]);
-		cam->setPosition(pos);
-		cam->setAttitude(osg::Quat(
+		robot->setPosition(pos);
+		robot->setAttitude(osg::Quat(
 				poseQuat[4],
 				poseQuat[5],
 				poseQuat[6],
@@ -788,11 +794,48 @@ namespace display {
 	}
 
 
-	SensorOsg::SensorOsg(ViewerAbstract *_viewer, rtslam::SensorExteroAbstract *_slamRob, RobotOsg *_dispMap):
-		SensorDisplay(_viewer, _slamRob, _dispMap), OsgViewerHolder(_viewer)
+	SensorOsg::SensorOsg(ViewerAbstract *_viewer, rtslam::SensorExteroAbstract *_slamSen, RobotOsg *_dispMap):
+		SensorDisplay(_viewer, _slamSen, _dispMap), OsgGeoHolder(_viewer)
 	{
 	}
-//
+
+	void SensorOsg::bufferize()
+	{
+		poseQuat = slamSen_->globalPose();
+	}
+
+	bool SensorOsg::needCreateShapes()
+	{
+		return numShapes() != 1;
+	}
+
+	void SensorOsg::createShapes()
+	{
+		osg::ref_ptr<osg::Group> loadedModel = loadGeoFile("cameraFlea3.osg");
+		loadedModel->setDataVariance(osg::Object::STATIC);
+
+		osg::ref_ptr<osg::PositionAttitudeTransform> sensorTransform;
+		sensorTransform = new osg::PositionAttitudeTransform;
+		sensorTransform->setName("SensorTransform");
+		sensorTransform->setDataVariance(osg::Object::DYNAMIC);
+		group->addChild(sensorTransform);
+		sensorTransform->addChild(loadedModel);
+	}
+
+	void SensorOsg::refreshShapes()
+	{
+		osg::PositionAttitudeTransform* cam = group->getChild(0)->asTransform()->asPositionAttitudeTransform();
+
+		osg::Vec3 pos(poseQuat[0], poseQuat[1], poseQuat[2]);
+		cam->setPosition(pos);
+		cam->setAttitude(osg::Quat(
+				poseQuat[4],
+				poseQuat[5],
+				poseQuat[6],
+				poseQuat[3]
+				));
+	}
+
 	LandmarkOsg::LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap):
 		LandmarkDisplay(_viewer, _slamLmk, _dispMap), OsgGeoHolder(_viewer)
 	{
