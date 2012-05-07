@@ -20,6 +20,7 @@
 
 #define HAVE_DISP_OSG
 
+#include <osg/Version>
 #include <osgViewer/Viewer>
 #include <osg/PositionAttitudeTransform>
 #include <osg/MatrixTransform>
@@ -28,6 +29,13 @@
 #include "rtslam/display.hpp"
 #include "rtslam/osgWidget.hpp"
 
+#if OSG_MIN_VERSION_REQUIRED(3, 0, 0)
+	typedef osgGA::CameraManipulator CameraManipulator;
+	#define OSG_FIXED_UP_MANIPULATOR_AVAILABLE 1
+#else
+	typedef osgGA::MatrixManipulator CameraManipulator;
+	#define OSG_FIXED_UP_MANIPULATOR_AVAILABLE 0
+#endif
 
 namespace jafar {
 namespace rtslam {

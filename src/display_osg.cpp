@@ -253,7 +253,7 @@ namespace display {
 		if (cullVisitor == NULL) return true;
 		osgViewer::View* view = dynamic_cast<osgViewer::View*>(cullVisitor->getCurrentCamera()->getView());
 		if (view == NULL) return true;
-		osgGA::CameraManipulator* baseManip = view->getCameraManipulator();
+		CameraManipulator* baseManip = view->getCameraManipulator();
 		LookThroughManipulator* trackManip = dynamic_cast<LookThroughManipulator*>(baseManip);
 		if (trackManip == NULL)
 		{
@@ -480,9 +480,6 @@ namespace display {
 		{
 			osg::ref_ptr<osgGA::KeySwitchMatrixManipulator> keyswitchManipulator = new osgGA::KeySwitchMatrixManipulator;
 
-			osg::ref_ptr<osgGA::TrackballManipulator> trackballFixedUpManip = new osgGA::TrackballManipulator();
-			trackballFixedUpManip->setVerticalAxisFixed(true);
-
 			osg::ref_ptr<LookThroughManipulator> lookThroughManip = new LookThroughManipulator(osg::Quat(
 					-PI*0.5, osg::Vec3(0.0,1.0,0.0),
 					 PI*0.5, osg::Vec3(1.0,0.0,0.0),
@@ -497,7 +494,11 @@ namespace display {
 //			followManip->setHomePosition(osg::Vec3(-.00001, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 			followManip->setHomePosition(osg::Vec3(-.15, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 
+#if OSG_FIXED_UP_MANIPULATOR_AVAILABLE
+			osg::ref_ptr<osgGA::TrackballManipulator> trackballFixedUpManip = new osgGA::TrackballManipulator();
+			trackballFixedUpManip->setVerticalAxisFixed(true);
 			keyswitchManipulator->addMatrixManipulator( '1', "Trackball (Fixed Up)", trackballFixedUpManip );
+#endif
 			keyswitchManipulator->addMatrixManipulator( '2', "Trackball (Free)", new osgGA::TrackballManipulator() );
 			keyswitchManipulator->addMatrixManipulator( '3', "Terrain", new osgGA::TerrainManipulator() );
 			keyswitchManipulator->addMatrixManipulator( '4', "Look Through Camera", lookThroughManip );
