@@ -36,10 +36,10 @@
 
 #if OSG_MIN_VERSION_REQUIRED(3, 0, 0)
 	typedef osgGA::CameraManipulator CameraManipulator;
-	#define OSG_FIXED_UP_MANIPULATOR_AVAILABLE 1
+	#define OSG_NEW_CAM_MANIP 1
 #else
 	typedef osgGA::MatrixManipulator CameraManipulator;
-	#define OSG_FIXED_UP_MANIPULATOR_AVAILABLE 0
+	#define OSG_NEW_CAM_MANIP 0
 #endif
 
 // Macro which returns whether the given pointer can be cast to a pointer of the
@@ -75,18 +75,24 @@ namespace display {
 		public:
 			LookThroughManipulator(const osg::Quat& rotation);
 			void setByMatrix(const osg::Matrixd& matrix);
-			void setTransformation( const osg::Vec3d& eye, const osg::Quat& rotation );
-			void setTransformation( const osg::Vec3d& eye, const osg::Vec3d& center, const osg::Vec3d& up );
 			osg::Matrixd getMatrix() const;
 			osg::Matrixd getInverseMatrix() const;
 			void home(double currentTime);
 			void computePosition(const osg::Vec3d& eye,const osg::Vec3d& center,const osg::Vec3d& up);
+
+#if OSG_NEW_CAM_MANIP
+			void setTransformation( const osg::Vec3d& eye, const osg::Quat& rotation );
+			void setTransformation( const osg::Vec3d& eye, const osg::Vec3d& center, const osg::Vec3d& up );
+			void setRotation( const osg::Quat& rotation );
+			void rotateTrackball( const float px0, const float py0,
+					const float px1, const float py1, const float scale );
 			bool performMovementLeftMouseButton( const double eventTimeDelta, const double dx, const double dy );
 			bool performMovementMiddleMouseButton( const double eventTimeDelta, const double dx, const double dy );
 			bool performMovementRightMouseButton( const double eventTimeDelta, const double dx, const double dy );
-			void rotateTrackball( const float px0, const float py0,
-					const float px1, const float py1, const float scale );
-			void setRotation( const osg::Quat& rotation );
+#else
+			virtual bool handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us);
+#endif
+
 	};
 
     class TrackNodeCullCallback : public osg::NodeCallback

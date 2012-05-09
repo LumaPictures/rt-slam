@@ -207,12 +207,6 @@ namespace display {
 	void LookThroughManipulator::setByMatrix(const osg::Matrixd& matrix)
 	{}
 
-	void LookThroughManipulator::setTransformation( const osg::Vec3d& eye, const osg::Quat& rotation )
-	{}
-
-	void LookThroughManipulator::setTransformation( const osg::Vec3d& eye, const osg::Vec3d& center, const osg::Vec3d& up )
-	{}
-
 	osg::Matrixd LookThroughManipulator::getMatrix() const
 	{
 	    osg::Vec3d nodeCenter;
@@ -236,6 +230,19 @@ namespace display {
 	void LookThroughManipulator::computePosition(const osg::Vec3d& eye,const osg::Vec3d& center,const osg::Vec3d& up)
 	{}
 
+#if OSG_NEW_CAM_MANIP
+	void LookThroughManipulator::setTransformation( const osg::Vec3d& eye, const osg::Quat& rotation )
+	{}
+
+	void LookThroughManipulator::setTransformation( const osg::Vec3d& eye, const osg::Vec3d& center, const osg::Vec3d& up )
+	{}
+
+	void LookThroughManipulator::setRotation( const osg::Quat& rotation )
+	{}
+
+	void LookThroughManipulator::rotateTrackball( const float px0, const float py0,
+			const float px1, const float py1, const float scale )
+	{}
 
 	bool LookThroughManipulator::performMovementLeftMouseButton( const double eventTimeDelta, const double dx, const double dy )
 	{
@@ -254,13 +261,12 @@ namespace display {
 		return true;
 	}
 
-	void LookThroughManipulator::rotateTrackball( const float px0, const float py0,
-			const float px1, const float py1, const float scale )
-	{}
-
-	void LookThroughManipulator::setRotation( const osg::Quat& rotation )
-	{}
-
+#else
+	bool LookThroughManipulator::handle(const osgGA::GUIEventAdapter& ea, osgGA::GUIActionAdapter& us)
+	{
+		return false;
+	}
+#endif
 
 	//////////////////////////////////////////////////
 	// Callbacks
@@ -525,12 +531,15 @@ namespace display {
 //			followManip->setHomePosition(osg::Vec3(-.00001, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 			followManip->setHomePosition(osg::Vec3(-.15, 0, 0), osg::Vec3(0,0,0), osg::Vec3(0,0,1));
 
-#if OSG_FIXED_UP_MANIPULATOR_AVAILABLE
+#if OSG_NEW_CAM_MANIP
 			osg::ref_ptr<osgGA::TrackballManipulator> trackballFixedUpManip = new osgGA::TrackballManipulator();
 			trackballFixedUpManip->setVerticalAxisFixed(true);
 			keyswitchManipulator->addMatrixManipulator( '1', "Trackball (Fixed Up)", trackballFixedUpManip );
-#endif
 			keyswitchManipulator->addMatrixManipulator( '2', "Trackball (Free)", new osgGA::TrackballManipulator() );
+#else
+			keyswitchManipulator->addMatrixManipulator( '1', "Trackball (Free 1)", new osgGA::TrackballManipulator() );
+			keyswitchManipulator->addMatrixManipulator( '2', "Trackball (Free 2)", new osgGA::TrackballManipulator() );
+#endif
 			keyswitchManipulator->addMatrixManipulator( '3', "Terrain", new osgGA::TerrainManipulator() );
 			keyswitchManipulator->addMatrixManipulator( '4', "Look Through Camera", lookThroughManip );
 			keyswitchManipulator->addMatrixManipulator( '5', "Follow Camera", followManip );
