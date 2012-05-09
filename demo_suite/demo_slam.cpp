@@ -1176,7 +1176,7 @@ void demo_slam_init()
 		
 		// initializing stuff for controlling run/pause from viewer
 		boost::unique_lock<boost::mutex> runStatus_lock(viewerQt->runStatus.mutex);
-		viewerQt->runStatus.pause = intOpts[iPause];
+		viewerQt->runStatus.pause = intOpts[iPause] == 1;
 		viewerQt->runStatus.render_all = intOpts[iRenderAll];
 		runStatus_lock.unlock();
 	}
@@ -1407,9 +1407,19 @@ int n_innovation = 0;
 		#ifdef HAVE_MODULE_QDISPLAY
 		if (intOpts[iDispQt])
 		{
+			doPause = intOpts[iPause] > 1 && (*world)->t == intOpts[iPause];
+
+			bool doNotify = false;
 			boost::unique_lock<boost::mutex> runStatus_lock(viewerQt->runStatus.mutex);
-			doPause = viewerQt->runStatus.pause;
+			if (viewerQt->runStatus.pause) doPause = true;
+			else if (doPause)
+			{
+				// doPause is true, but runStatus.pause isn't
+				viewerQt->runStatus.pause = true;
+				doNotify = true;
+			}
 			runStatus_lock.unlock();
+			if (doNotify) viewerQt->runStatus.condition.notify_all();
 		} else
 		#endif
 		doPause = (intOpts[iPause] != 0);
