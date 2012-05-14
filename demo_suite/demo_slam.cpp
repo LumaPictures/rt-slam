@@ -551,7 +551,13 @@ void demo_slam_init()
 	
 	if (!strOpts[sLog].empty())
 	{
-		dataLogger.reset(new kernel::DataLogger(strOpts[sDataPath] + "/" + strOpts[sLog]));
+		std::string logPath = strOpts[sLog];
+		if (logPath.size() > 2 && logPath[0] == '@' && logPath[1] == '/')
+			logPath = strOpts[sDataPath] + logPath.substr(1);
+		else if (logPath[0] != '/')
+			logPath = strOpts[sDataPath] + "/" + logPath;
+
+		dataLogger.reset(new kernel::DataLogger(logPath));
 		dataLogger->writeCurrentDate();
 		dataLogger->writeNewLine();
 #ifndef GENOM
