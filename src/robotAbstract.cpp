@@ -134,21 +134,22 @@ namespace jafar {
 //firstmove=false;
 				if (firstmove) // compute average past control and allow the robot to init its state with it
 				{
-					jblas::mat_indirect readings = hardwareEstimatorPtr->acquireReadings(0, time);
+					hardware::HardwareSensorProprioAbstract::VecIndT readings = hardwareEstimatorPtr->getRaws(-1., time);
 					self_time = 0.;
 					dt_or_dx = 0.;
-					unsigned nreadings = readings.size1();
-					if (readings(nreadings-1, 0) >= time) nreadings--; // because it could be available offline but not online
+					unsigned nreadings = readings.size();
+					if (readings(nreadings-1).data(0) >= time) nreadings--; // because it could be available offline but not online
 
-					jblas::vec avg_u(readings.size2()-1); avg_u.clear();
+					unsigned data_vsize = readings(0).data.size();
+					jblas::vec avg_u(data_vsize-1); avg_u.clear();
 					for(size_t i = 0; i < nreadings; i++)
-						avg_u += ublas::subrange(ublas::matrix_row<mat_indirect>(readings, i),1,readings.size2());
+						avg_u += ublas::subrange(readings(i).data,1,data_vsize);
 					if (nreadings) avg_u /= nreadings;
 
-					jblas::vec var_u(readings.size2()-1); var_u.clear();
-					jblas::vec diff_u(readings.size2()-1);
+					jblas::vec var_u(data_vsize-1); var_u.clear();
+					jblas::vec diff_u(data_vsize-1);
 					for(size_t i = 0; i < nreadings; i++) {
-						diff_u = ublas::subrange(ublas::matrix_row<mat_indirect>(readings, i),1,readings.size2()) - avg_u;
+						diff_u = ublas::subrange(readings(i).data,1,data_vsize) - avg_u;
 						var_u += ublas::element_prod(diff_u, diff_u);
 					}
 					if (nreadings) var_u /= nreadings;
@@ -157,26 +158,27 @@ namespace jafar {
 				}
 				else // else just move with the available control
 				{
-					jblas::mat_indirect readings = hardwareEstimatorPtr->acquireReadings(self_time, time);
+					hardware::HardwareSensorProprioAbstract::VecIndT readings = hardwareEstimatorPtr->getRaws(self_time, time);
 // JFR_DEBUG("move from " << std::setprecision(19) << self_time << " to " << time << " with cur_time " << self_time << std::setprecision(6) << " using " << readings.size1() << " readings");
-					jblas::vec u(readings.size2()-1), prev_u(readings.size2()-1), next_u(readings.size2()-1);
+					unsigned data_vsize = readings(0).data.size();
+					jblas::vec u(data_vsize-1), prev_u(data_vsize-1), next_u(data_vsize-1);
 					
 					jblas::ind_array instantArray = hardwareEstimatorPtr->instantValues()-1;
 					jblas::ind_array incrementArray = hardwareEstimatorPtr->incrementValues()-1;
 					jblas::vec_indirect u_instant(u, instantArray), prev_u_instant(prev_u, instantArray), next_u_instant(next_u, instantArray);
 					jblas::vec_indirect u_increment(u, incrementArray), prev_u_increment(prev_u, incrementArray), next_u_increment(next_u, incrementArray);
 					
-					double a, cur_time = self_time, after_time, prev_time = readings(0, 0), next_time, average_time;
-					prev_u = ublas::subrange(ublas::matrix_row<mat_indirect>(readings, 0),1,readings.size2());
+					double a, cur_time = self_time, after_time, prev_time = readings(0).data(0), next_time, average_time;
+					prev_u = ublas::subrange(readings(0).data,1,data_vsize);
 				
-					for(size_t i = 0; i < readings.size1(); i++)
+					for(size_t i = 0; i < readings.size(); i++)
 					{
-						next_time = after_time = readings(i, 0);
-						if (after_time > time || i == readings.size1()-1) after_time = time;
+						next_time = after_time = readings(i).data(0);
+						if (after_time > time || i == readings.size()-1) after_time = time;
 						if (after_time <= cur_time) continue;
 						dt_or_dx = after_time - cur_time;
 						perturbation.set_from_continuous(dt_or_dx);
-						next_u = ublas::subrange(ublas::matrix_row<mat_indirect>(readings, i),1,readings.size2());
+						next_u = ublas::subrange(readings(i).data,1,data_vsize);
 						
 						average_time = (after_time+cur_time)/2; // middle of the integration interval
 						if (next_time-prev_time < 1e-6) a = 0; else a = (average_time-prev_time)/(next_time-prev_time);
@@ -204,10 +206,10 @@ namespace jafar {
 
 		void RobotAbstract::move_fake(double time){
 			if (self_time < 0.) self_time = 0.;
-			if (hardwareEstimatorPtr) hardwareEstimatorPtr->acquireReadings(self_time, time);
+			if (hardwareEstimatorPtr) hardwareEstimatorPtr->getRaws(self_time, time);
 			self_time = time;
 		}
-		
+
 
 		void RobotAbstract::writeLogHeader(kernel::DataLogger& log) const
 		{

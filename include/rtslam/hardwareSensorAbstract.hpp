@@ -43,12 +43,6 @@ namespace hardware {
 
 //namespace ublas = boost::numeric::ublas;
 
-#if 0
-class HardwareSensorAbstract;
-typedef boost::shared_ptr<HardwareSensorAbstract> hardware_sensor_ptr_t;
-#endif
-
-#if 1
 
 inline double extractRawTimestamp(raw_ptr_t &raw) { return raw->timestamp; }
 inline double extractRawTimestamp(RawVec &raw) { return raw.data(0); }
@@ -81,7 +75,7 @@ class HardwareSensorAbstract
 		bool read_pos_used;  /// current read_pos is being used
 		
 	protected:
-		kernel::VariableCondition<int> &condition; /// to notify when new data is available
+		kernel::VariableCondition<int> *condition; /// to notify when new data is available
 		kernel::VariableCondition<int> index; /// index of used data
 		boost::mutex mutex_data; /// mutex for using this object
 		boost::condition_variable cond_offline_full;
@@ -154,7 +148,7 @@ class HardwareSensorAbstract
 		/** Constructor
 			@param condition to notify when new data is available
 		*/
-		HardwareSensorAbstract(kernel::VariableCondition<int> &condition, unsigned bufferSize):
+		HardwareSensorAbstract(kernel::VariableCondition<int> *condition, unsigned bufferSize):
 			write_pos(0), read_pos(0), buffer_full(false), read_pos_used(false),
 		  condition(condition), index(-1),
 		  data_count(0), no_more_data(false), timestamps_correction(0.0), started(false),
@@ -211,31 +205,49 @@ class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>
 		 *                   Note that the observation can be made by the robot itself or by something else and sent to the robot, but
 		 *                   the convention is that in any case (ux,uy,uz) must be oriented from the robot.
 		 */
-		enum Quantity { qPos, qOriQuat, qOriEuler, qVel, qAbsVel, qAngVel, qAbsAngVel, qAcc, qAbsAcc, qBundleobs, qNQuantity };
+		enum Quantity { qPos, qOriQuat, qOriEuler, qVel, qAbsVel, qAngVel, qAbsAngVel, qAcc, qAbsAcc, qBundleobs, qMag, qNQuantity };
 		static const int QuantityDataSizes[qNQuantity];
 		static const int QuantityObsSizes[qNQuantity];
+		enum CovType { ctNone, ctVar, ctFull };
 	private:
 		int quantities[qNQuantity];
 		size_t data_size;
 		size_t obs_size;
-		bool full_cov;
+		CovType cov_type;
 	protected:
+		RawVec reading;
 		void addQuantity(Quantity quantity) { quantities[quantity] = data_size+1; data_size += QuantityDataSizes[quantity]; obs_size += QuantityObsSizes[quantity]; }
 		void clearQuantities() { for(int i = 0; i < qNQuantity; ++i) quantities[i] = -1; data_size = obs_size = 0; }
 	public:
-		HardwareSensorProprioAbstract(kernel::VariableCondition<int> &condition, unsigned bufferSize, bool fullCov):
-			HardwareSensorAbstract<RawVec>(condition, bufferSize), full_cov(fullCov) { clearQuantities(); }
+		HardwareSensorProprioAbstract(kernel::VariableCondition<int> *condition, unsigned bufferSize, CovType covType):
+			HardwareSensorAbstract<RawVec>(condition, bufferSize), cov_type(covType) { clearQuantities(); }
 		size_t dataSize() { return data_size; } /// number of measure variables provided (without timestamp and variance)
 		size_t obsSize() { return obs_size; } /// number of observation variables among measure variables (that can be predicted from the robot state and the rest of the measure variables)
-		size_t readingSize() { if (full_cov) return 1+data_size*(data_size+3)/2; else return 1+data_size*2; } /// the size of a reading vector that stores everything
+		size_t readingSize() { switch (cov_type) { case ctNone: return 1+data_size; case ctVar: return 1+data_size*2; case ctFull: return 1+data_size*(data_size+3)/2; default: return 0; } } /// the size of a reading vector that stores everything
 		size_t getQuantity(Quantity quantity) { return quantities[quantity]; } /// get index of quantity, -1 if not measured
-		bool hasFullCov() { return full_cov; } /// does this hardware sensor return full covariance matrices with data?
+		CovType covType() { return cov_type; } /// does this hardware sensor return full covariance matrices with data?
+		void initData() {
+			int size = readingSize();
+			for(int i = 0; i < bufferSize; ++i) { buffer[i].resize(size); buffer(i).data(0) = -1.; }
+			reading.resize(size);
+		}
+		/**
+		This function must return the indices of values returned by acquireReadings that represent
+		the instant value of a physical quantity (speed, acceleration, ...) (except first column which is time)
+		These values will typically be integrated.
+		*/
+		virtual jblas::ind_array instantValues() = 0;
+		/**
+		This function must return the indices of values returned by acquireReadings that represent
+		the increment of a physical quantity since last reading (odometry, ...)
+		*/
+		virtual jblas::ind_array incrementValues() = 0;
 };
 
 class HardwareSensorExteroAbstract: public HardwareSensorAbstract<raw_ptr_t>
 {
 	public:
-		HardwareSensorExteroAbstract(kernel::VariableCondition<int> &condition, unsigned bufferSize):
+		HardwareSensorExteroAbstract(kernel::VariableCondition<int> *condition, unsigned bufferSize):
 			HardwareSensorAbstract<raw_ptr_t>(condition, bufferSize) {}
 	
 	
@@ -244,29 +256,12 @@ class HardwareSensorExteroAbstract: public HardwareSensorAbstract<raw_ptr_t>
 typedef boost::shared_ptr<hardware::HardwareSensorExteroAbstract> hardware_sensorext_ptr_t;
 typedef boost::shared_ptr<hardware::HardwareSensorProprioAbstract> hardware_sensorprop_ptr_t;
 
-#endif
-
-#if 0
-class HardwareSensorAbstract
-{
-	protected:
-		boost::condition_variable &rawdata_condition;
-		boost::mutex &rawdata_mutex;
-	public:
-		HardwareSensorAbstract(boost::condition_variable &rawdata_condition, boost::mutex &rawdata_mutex):
-			rawdata_condition(rawdata_condition), rawdata_mutex(rawdata_mutex) {}
-		/**
-		@param rawPtr the latest raw available from the sensor
-		@return the number of missed raws, -1 if no raw is available since last call, -2 if no raw will ever be available
-		@note must be non blocking
-		*/
-		virtual int acquireRaw(raw_ptr_t &rawPtr) = 0;
-		virtual ~HardwareSensorAbstract() {}
-};
-#endif
 
 
-#if 1
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Template implementations
 
 template<typename T>
 typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(double t1, double t2)
@@ -286,12 +281,12 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 	}
 	i = i_left % bufferSize;
 	i1 = (i-1 + bufferSize) % bufferSize;
-	if (t1 <= 1.0 && extractRawTimestamp(buffer(i1)) < 0.0) i1 = i;
+	if (t1 <= -0.1) i1 = i;
 	bool no_larger = (extractRawTimestamp(buffer(i)) < t1);
 	bool no_smaller = (i == write_pos);
 	if (no_larger && extractRawTimestamp(buffer(i1)) < 0.0)  // no data at all
 		return ublas::project(buffer, jmath::ublasExtra::ia_set(ublas::range(0,0)));
-	if (no_smaller) JFR_ERROR(RtslamException, RtslamException::BUFFER_OVERFLOW, "Missing data: increase buffer size !");
+	if (no_smaller && t1 > 0) JFR_ERROR(RtslamException, RtslamException::BUFFER_OVERFLOW, "Missing data: increase buffer size !");
 	
 	if (no_larger)
 		i2 = i1;
@@ -420,8 +415,6 @@ int HardwareSensorAbstract<T>::getLastUnreadRaw(T& raw)
 	if (no_more_data && missed_count == -1) return -2; else return missed_count;
 }
 
-
-#endif
 
 
 }}}

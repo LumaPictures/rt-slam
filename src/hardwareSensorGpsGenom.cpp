@@ -73,6 +73,7 @@ namespace hardware {
 					}
 				}
 #endif
+				if (isFull()) JFR_ERROR(RtslamException, RtslamException::BUFFER_OVERFLOW, "Data not read: Increase GPS buffer size !");
 				reading.arrival = kernel::Clock::getTime();
 				pos = (double*)(data+16);
 				var = (float*)(data+48);
@@ -91,6 +92,7 @@ namespace hardware {
 			buffer(buff_write).data(0) += timestamps_correction;
 			last_timestamp = reading.data(0);
 			incWritePos();
+			if (condition) condition->setAndNotify(1);
 			
 			if (mode == 1)
 			{
@@ -102,12 +104,13 @@ namespace hardware {
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 	
 	
-	HardwareSensorGpsGenom::HardwareSensorGpsGenom(kernel::VariableCondition<int> &condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
-		HardwareSensorProprioAbstract(condition, bufferSize, false), mode(mode), dump_path(dump_path)
+	HardwareSensorGpsGenom::HardwareSensorGpsGenom(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
+		HardwareSensorProprioAbstract(condition, bufferSize, ctVar), mode(mode), dump_path(dump_path)
 	{
 		addQuantity(qPos);
 		//addQuantity(qAbsVel);
-		reading.resize(readingSize());
+		initData();
+
 		// configure
 		if (mode == 0 || mode == 1)
 		{

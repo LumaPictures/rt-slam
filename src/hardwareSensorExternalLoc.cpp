@@ -183,11 +183,12 @@ namespace hardware {
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 	
 	
-	HardwareSensorExternalLoc::HardwareSensorExternalLoc(kernel::VariableCondition<int> &condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
-		HardwareSensorProprioAbstract(condition, bufferSize, true), mode(mode), dump_path(dump_path)
+	HardwareSensorExternalLoc::HardwareSensorExternalLoc(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
+		HardwareSensorProprioAbstract(condition, bufferSize, ctFull), mode(mode), dump_path(dump_path)
 	{
 		addQuantity(qBundleobs);
-		reading.resize(readingSize());
+		initData();
+
 		// configure
 		if (mode == 0 || mode == 1)
 		{

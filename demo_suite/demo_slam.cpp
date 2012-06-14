@@ -157,7 +157,7 @@
 
 #include "rtslam/hardwareSensorCameraFirewire.hpp"
 #include "rtslam/hardwareSensorCameraUeye.hpp"
-#include "rtslam/hardwareEstimatorMti.hpp"
+#include "rtslam/hardwareSensorMti.hpp"
 #include "rtslam/hardwareSensorGpsGenom.hpp"
 #include "rtslam/hardwareSensorMocap.hpp"
 #include "rtslam/hardwareEstimatorOdo.hpp" 
@@ -168,7 +168,7 @@
 
 #include "rtslam/simuRawProcessors.hpp"
 #include "rtslam/hardwareSensorAdhocSimulator.hpp"
-#include "rtslam/hardwareEstimatorInertialAdhocSimulator.hpp"
+#include "rtslam/hardwareSensorInertialAdhocSimulator.hpp"
 #include "rtslam/exporterSocket.hpp"
 
 
@@ -775,8 +775,8 @@ void demo_slam_init()
 		if (intOpts[iTrigger] != 0)
 		{
 			// just to initialize the MTI as an external trigger controlling shutter time
-			hardware::HardwareEstimatorMti hardEst1(
-				configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
+			hardware::HardwareSensorMti hardEst1(
+				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
 			floatOpts[fFreq] = hardEst1.getFreq();
 		}
 	}
@@ -801,10 +801,10 @@ void demo_slam_init()
 		robPtr1_->perturbation.set_std_continuous(pertStd);
 		robPtr1_->constantPerturbation = false;
 
-		hardware::hardware_estimator_ptr_t hardEst1;
+		hardware::hardware_sensorprop_ptr_t hardEst1;
 		if (intOpts[iSimu] != 0)
 		{
-			boost::shared_ptr<hardware::HardwareEstimatorInertialAdhocSimulator> hardEst1_(
+/*			boost::shared_ptr<hardware::HardwareEstimatorInertialAdhocSimulator> hardEst1_(
 				new hardware::HardwareEstimatorInertialAdhocSimulator(configSetup.SIMU_IMU_FREQ, 50, simulator, robPtr1_->id()));
 			hardEst1_->setSyncConfig(configSetup.SIMU_IMU_TIMESTAMP_CORRECTION);
 			
@@ -817,10 +817,10 @@ void demo_slam_init()
 				configSetup.SIMU_IMU_RANDWALKACC_FACTOR * configSetup.PERT_RANWALKACC);
 			
 			hardEst1 = hardEst1_;
-		} else
+*/		} else
 		{
-			boost::shared_ptr<hardware::HardwareEstimatorMti> hardEst1_(new hardware::HardwareEstimatorMti(
-				configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
+			boost::shared_ptr<hardware::HardwareSensorMti> hardEst1_(new hardware::HardwareSensorMti(
+				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
 			if (intOpts[iTrigger] != 0) floatOpts[fFreq] = hardEst1_->getFreq();
 			hardEst1_->setSyncConfig(configSetup.IMU_TIMESTAMP_CORRECTION);
 			//hardEst1_->setUseForInit(true);
@@ -834,7 +834,7 @@ void demo_slam_init()
 	} else
 	if (intOpts[iRobot] == 2) // odometry
 	{
-		robodo_ptr_t robPtr1_(new RobotOdometry(mapPtr));
+/*		robodo_ptr_t robPtr1_(new RobotOdometry(mapPtr));
 		robPtr1_->setId();	
 		std::cout<<"configSetup.dxNDR "<<configSetup.dxNDR<<std::endl;
 		std::cout<<"configSetup.dvNDR "<<configSetup.dvNDR<<std::endl;
@@ -852,6 +852,7 @@ void demo_slam_init()
 		hardEst2 = hardEst2_;
 		robPtr1_->setHardwareEstimator(hardEst2);	
 		robPtr1 = robPtr1_;
+		*/
 	}
 
 	robPtr1->linkToParentMap(mapPtr);
@@ -1022,7 +1023,7 @@ void demo_slam_init()
 				dmPt11->linkToParentMapManager(mmPoint);
 				dmPt11->setObservationFactory(obsFact);
 
-				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
+				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(&rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
 				senPtr11->setHardwareSensor(hardSen11);
 			#else
 				boost::shared_ptr<simu::DetectorSimu<image::ConvexRoi> > detector(new simu::DetectorSimu<image::ConvexRoi>(LandmarkAbstract::POINT, 2, configEstimation.PATCH_SIZE, configEstimation.PIX_NOISE, configEstimation.PIX_NOISE*configEstimation.PIX_NOISE_SIMUFACTOR));
@@ -1034,7 +1035,7 @@ void demo_slam_init()
 				dmPt11->linkToParentMapManager(mmPoint);
 				dmPt11->setObservationFactory(obsFact);
 
-				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
+				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(&rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
 				senPtr11->setHardwareSensor(hardSen11);
 			#endif
 		} else
@@ -1082,7 +1083,7 @@ void demo_slam_init()
 					case 1: crop = VIAM_HW_CROP; break;
 					default: crop = VIAM_HW_FIXED; break;
 				}
-				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(rawdata_condition, 200,
+				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, 200,
 					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), 0, 8, crop, floatOpts[fFreq], intOpts[iTrigger],
 					floatOpts[fShutter], mode, strOpts[sDataPath]));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
@@ -1090,7 +1091,7 @@ void demo_slam_init()
 				#else
 				if (intOpts[iReplay] & 1)
 				{
-					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
+					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
 					senPtr11->setHardwareSensor(hardSen11);
 				}
 				#endif
@@ -1100,7 +1101,7 @@ void demo_slam_init()
 			} else if (configSetup.CAMERA_TYPE == 3)
 			{ // UEYE
 				#ifdef HAVE_UEYE
-				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(rawdata_condition, 200,
+				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, 200,
 					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), floatOpts[fFreq], intOpts[iTrigger],
 					floatOpts[fShutter], mode, strOpts[sDataPath]));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
@@ -1108,7 +1109,7 @@ void demo_slam_init()
 				#else
 				if (intOpts[iReplay] & 1)
 				{
-					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
+					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
 					senPtr11->setHardwareSensor(hardSen11);
 				}
 				#endif
@@ -1131,11 +1132,11 @@ void demo_slam_init()
 		switch (intOpts[iGps])
 		{
 			case 1:
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
 			case 2:
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
 			case 3:
-				hardGps.reset(new hardware::HardwareSensorMocap(rawdata_condition, 200, mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorMocap(&rawdata_condition, 200, mode, strOpts[sDataPath]));
 				init = false;
 		}
 

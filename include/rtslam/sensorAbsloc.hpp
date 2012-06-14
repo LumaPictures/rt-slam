@@ -51,7 +51,7 @@ namespace jafar {
 			private:
 				size_t indexE_OriEuler, indexE_Pos, indexE_Bundleobs; /// indexes in expectation
 				int indexD_Pos, indexD_OriEuler, indexD_Bundleobs; /// indexes in sensor's data
-				bool full_cov;
+				hardware::HardwareSensorProprioAbstract::CovType covType;
 
 			public:
 				/**
@@ -97,7 +97,7 @@ namespace jafar {
 					indexD_Bundleobs = hardwareSensorPtr->getQuantity(hardware::HardwareSensorProprioAbstract::qBundleobs);
 					if (indexD_Bundleobs >= 0) { indexE_Bundleobs = indexE; indexE += hardwareSensorPtr->QuantityObsSizes[hardware::HardwareSensorProprioAbstract::qBundleobs]; }
 
-					full_cov = hardwareSensorPtr->hasFullCov();
+					covType = hardwareSensorPtr->covType();
 
 					// find minimum variance
 					jblas::vec3 min_var; min_var(0) = min_var(1) = min_var(2) = 1e3;
@@ -190,17 +190,11 @@ namespace jafar {
 						ublas::subrange(EXP_rs, indexE_Bundleobs,indexE_Bundleobs+3, 0,3) = -U_p;
 
 						jblas::sym_mat33 Pos; Pos.clear();
-						if (full_cov)
-						{
-							Pos = ublasExtra::createSymMat(reading.data, dats+1, dats, 0, 3);
-//							for(int i = 0; i < 3; ++i)
-//							{
-//								int k = dats+1 + (dats)*(dats+1)/2 - (dats-i)*(dats-i+1)/2;
-//								for(int j = i; j < 3; ++j) Pos(i,j) = reading.data(k+(j-i));
-//							}
-						} else
-						{
-							for(int i = 0; i < 3; ++i) Pos(i,i) = reading.data(indexE_Bundleobs+i+dats);
+						switch (covType) {
+							case hardware::HardwareSensorProprioAbstract::ctNone: break;
+							case hardware::HardwareSensorProprioAbstract::ctVar : for(int i = 0; i < 3; ++i) Pos(i,i) = reading.data(indexE_Bundleobs+i+dats); break;
+							case hardware::HardwareSensorProprioAbstract::ctFull: Pos = ublasExtra::createSymMat(reading.data, dats+1, dats, 0, 3); break;
+							default: break;
 						}
 						ublas::subrange(expectation->P(), indexE_Bundleobs,indexE_Bundleobs+3, indexE_Bundleobs,indexE_Bundleobs+3) = prod_JPJt(Pos, U_p);
 

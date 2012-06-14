@@ -29,7 +29,7 @@
 #include "rtslam/mapObject.hpp"
 #include "rtslam/parents.hpp"
 
-#include "rtslam/hardwareEstimatorAbstract.hpp"
+#include "rtslam/hardwareSensorAbstract.hpp"
 
 namespace jafar {
 	namespace rtslam {
@@ -65,7 +65,7 @@ namespace jafar {
 				// define the type SensorList, and the function sensorList().
 				ENABLE_ACCESS_TO_CHILDREN(SensorAbstract,Sensor,sensor);
 
-				hardware::hardware_estimator_ptr_t hardwareEstimatorPtr;
+				hardware::hardware_sensorprop_ptr_t hardwareEstimatorPtr;
 
 				/**
 				 * Remote constructor from remote map and size of state and control vectors.
@@ -157,7 +157,7 @@ namespace jafar {
 					perturbation = _pert;
 				}
 
-				void setHardwareEstimator(hardware::hardware_estimator_ptr_t hardwareEstimatorPtr_)
+				void setHardwareEstimator(hardware::hardware_sensorprop_ptr_t hardwareEstimatorPtr_)
 				{
 					hardwareEstimatorPtr = hardwareEstimatorPtr_;
 				}

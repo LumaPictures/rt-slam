@@ -119,15 +119,18 @@ namespace jafar {
 		 There should be no need of this function, RobotAbstract::move(double time)
 		 should do it. The transformation of sensor data (absolute positions
 		 to relative moves) should be done in the hardwareEstimator.
+
+		 Disabled after moving hardware estimators to generic sensor interface
 		 */
 		void RobotOdometry::move(double time){
+#if 0
 			bool firstmove = false;
 			if (self_time < 0.) { firstmove = true; self_time = time; }
 			if (hardwareEstimatorPtr)
 			{
 				if (firstmove) // compute average past control and allow the robot to init its state with it
 				{
-					jblas::mat_indirect readings = hardwareEstimatorPtr->acquireReadings(0, time);
+					jblas::mat_indirect readings = hardwareEstimatorPtr->getRaws(0, time);
 					self_time = 0.;
 					dt_or_dx = 0.;
 					jblas::vec avg_u(readings.size2()-1); avg_u.clear();
@@ -141,7 +144,7 @@ namespace jafar {
 				}
 				else // else just move with the available control
 				{
-					jblas::mat_indirect readings = hardwareEstimatorPtr->acquireReadings(self_time, time);
+					jblas::mat_indirect readings = hardwareEstimatorPtr->getRaws(self_time, time);
 					jblas::vec u(readings.size2()-1), prev_u(readings.size2()-1), next_u(readings.size2()-1);
 					jblas::vec7 prev_uq, next_uq, prev_uqi, uq;
 
@@ -180,8 +183,8 @@ namespace jafar {
 				}
 			}
 			self_time = time;
+#endif
 		}
-
 
 		void RobotOdometry::init_func(const vec & _x, const vec & _u, vec & _xnew) {
 			

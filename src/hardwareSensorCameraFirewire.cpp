@@ -181,7 +181,7 @@ namespace hardware {
 			last_timestamp = bufferSpecPtr[buff_write]->timestamp;
 #endif
 			incWritePos();
-			condition.setAndNotify(1);
+			if (condition) condition->setAndNotify(1);
 		}
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 
@@ -228,7 +228,7 @@ namespace hardware {
 	}
 		
 	
-	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> &condition, cv::Size imgSize, std::string dump_path):
+	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorCamera(condition, imgSize, dump_path)
 	{}
 	
@@ -267,7 +267,7 @@ namespace hardware {
 		init(mode, dump_path, viamSize_to_size(hwmode.size));
 	}
 
-	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> &condition, int bufferSize, const std::string &camera_id, cv::Size size, int format, int depth, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode, std::string dump_path):
+	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, int format, int depth, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode, std::string dump_path):
 		HardwareSensorCamera(condition, bufferSize)
 	{
 		viam_hwmode_t hwmode = { size_to_viamSize(size), format_to_viamFormat(format, depth), crop, freq_to_viamFreq(freq), trigger_to_viamTrigger(trigger) };

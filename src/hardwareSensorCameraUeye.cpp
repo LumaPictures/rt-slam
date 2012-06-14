@@ -70,7 +70,7 @@ namespace hardware {
 				last_timestamp = bufferSpecPtr[buff_write]->timestamp;
 #endif
 			incWritePos();
-			condition.setAndNotify(1);
+			condition->setAndNotify(1);
 		}
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 
@@ -102,7 +102,7 @@ namespace hardware {
 	}
 		
 	
-	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> &condition, cv::Size imgSize, std::string dump_path):
+	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorCamera(condition, imgSize, dump_path)
 	{}
 	
@@ -180,7 +180,7 @@ namespace hardware {
 		init(mode, dump_path, imgSize);
 	}
 
-	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> &condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode, std::string dump_path):
+	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode, std::string dump_path):
 		HardwareSensorCamera(condition, bufferSize)
 	{
 		init(camera_id, size, shutter, freq, trigger, mode, dump_path);
