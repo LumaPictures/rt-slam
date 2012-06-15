@@ -172,7 +172,7 @@ class HardwareSensorAbstract
 		
 		virtual double getLastTimestamp() = 0;
 		
-		virtual VecIndT getRaws(double t1, double t2); ///< will also release the raws before the first one
+		virtual VecIndT getRaws(double t1, double t2, bool release = true); ///< will also release the raws before the first one if release is true
 		virtual int getUnreadRawInfos(RawInfos &infos); ///< get timing informations about unread raws
 		virtual int getNextRawInfo(RawInfo &info); ///< get info about next unread raw
 		virtual void getRaw(unsigned id, T& raw); ///< will also release the raws before this one
@@ -264,7 +264,7 @@ typedef boost::shared_ptr<hardware::HardwareSensorProprioAbstract> hardware_sens
 // Template implementations
 
 template<typename T>
-typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(double t1, double t2)
+typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(double t1, double t2, bool release)
 {
 	JFR_ASSERT(t1 <= t2, "");
 	boost::unique_lock<boost::mutex> l(mutex_data);
@@ -305,7 +305,7 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 	
 	
 	// return mat_indirect
-	read_pos = i1;
+	if (release) read_pos = i1;
 	l.unlock();
 	cond_offline_freed.notify_all();
 

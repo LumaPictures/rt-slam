@@ -1316,8 +1316,9 @@ int n_innovation = 0;
 				average_robot_innovation += ublas::norm_2(robPtr->state.x() - robot_prediction);
 				n_innovation++;
 				
+				robPtr->reinit_extrapolate();
 				if (exporter) exporter->exportCurrentState();
-#ifdef GENOM // export genom
+#ifdef GENOM_DISABLE // export genom
 				jblas::vec euler_x(3);
 				jblas::sym_mat euler_P(3,3);
 				quaternion::q2e(ublas::subrange(robotPtr->state.x(), 3, 7), ublas::subrange(robotPtr->state.P(), 3,7, 3,7), euler_x, euler_P);
