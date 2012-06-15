@@ -461,9 +461,15 @@ void demo_slam_init()
 		boost::filesystem::remove(strOpts[sDataPath] + "/setup.cfg");
 		boost::filesystem::remove(strOpts[sDataPath] + "/setup.cfg.maybe");
 		if (intOpts[iReplay] == 2)
+		{
 			boost::filesystem::copy_file(strOpts[sConfigSetup], strOpts[sDataPath] + "/setup.cfg.maybe"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
+			boost::filesystem::copy_file(strOpts[sConfigEstimation], strOpts[sDataPath] + "/estimation.cfg.maybe"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
+		}
 		else
+		{
 			boost::filesystem::copy_file(strOpts[sConfigSetup], strOpts[sDataPath] + "/setup.cfg"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
+			boost::filesystem::copy_file(strOpts[sConfigEstimation], strOpts[sDataPath] + "/estimation.cfg"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
+		}
 	}
 	#ifndef HAVE_MODULE_QDISPLAY
 	intOpts[iDispQt] = 0;
@@ -1413,7 +1419,7 @@ int n_innovation = 0;
 		#ifdef HAVE_MODULE_QDISPLAY
 		if (intOpts[iDispQt])
 		{
-			doPause = intOpts[iPause] > 1 && (*world)->t == intOpts[iPause];
+			doPause = intOpts[iPause] > 1 && static_cast<int>((*world)->t) == intOpts[iPause];
 
 			bool doNotify = false;
 			boost::unique_lock<boost::mutex> runStatus_lock(viewerQt->runStatus.mutex);
