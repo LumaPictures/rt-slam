@@ -458,17 +458,32 @@ void demo_slam_init()
 		strOpts[sConfigEstimation] = strOpts[sDataPath] + strOpts[sConfigEstimation].substr(1);
 	if (!(intOpts[iReplay] & 1) && intOpts[iDump])
 	{
+		string dumpSetup;
+		string dumpEstimation;
 		boost::filesystem::remove(strOpts[sDataPath] + "/setup.cfg");
 		boost::filesystem::remove(strOpts[sDataPath] + "/setup.cfg.maybe");
 		if (intOpts[iReplay] == 2)
 		{
-			boost::filesystem::copy_file(strOpts[sConfigSetup], strOpts[sDataPath] + "/setup.cfg.maybe"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
-			boost::filesystem::copy_file(strOpts[sConfigEstimation], strOpts[sDataPath] + "/estimation.cfg.maybe"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
+			dumpSetup = strOpts[sDataPath] + "/setup.cfg.maybe";
+			dumpEstimation = strOpts[sDataPath] + "/estimation.cfg.maybe";
 		}
 		else
 		{
-			boost::filesystem::copy_file(strOpts[sConfigSetup], strOpts[sDataPath] + "/setup.cfg"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
-			boost::filesystem::copy_file(strOpts[sConfigEstimation], strOpts[sDataPath] + "/estimation.cfg"/*, boost::filesystem::copy_option::overwrite_if_exists*/);
+			dumpSetup = strOpts[sDataPath] + "/setup.cfg";
+			dumpEstimation = strOpts[sDataPath] + "/estimation.cfg";
+		}
+		typedef std::vector< std::pair<string, string> > StringPairs;
+		StringPairs copyPaths;
+		copyPaths.push_back( std::make_pair(strOpts[sConfigSetup], dumpSetup) );
+		copyPaths.push_back( std::make_pair(strOpts[sConfigEstimation], dumpEstimation) );
+		for(StringPairs::iterator it = copyPaths.begin();
+				it < copyPaths.end(); ++it)
+		{
+			if (not boost::filesystem::equivalent((*it).first, (*it).second))
+			{
+				boost::filesystem::remove((*it).second);
+				boost::filesystem::copy_file((*it).first, (*it).second/*, boost::filesystem::copy_option::overwrite_if_exists*/);
+			}
 		}
 	}
 	#ifndef HAVE_MODULE_QDISPLAY
