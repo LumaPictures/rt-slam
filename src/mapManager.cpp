@@ -140,7 +140,8 @@ namespace jafar {
 					 lmkIter != landmarkList().end(); ++lmkIter)
 			{
 				landmark_ptr_t lmkPtr = *lmkIter;
-				bool needToDie = false;
+				bool needToDie = lmkPtr->needToDie();
+				if (!needToDie)
 				for(LandmarkAbstract::ObservationList::iterator obsIter = lmkPtr->observationList().begin();
 						obsIter != lmkPtr->observationList().end(); ++obsIter)
 				{ // all observations (sensors) must agree to delete a landmark

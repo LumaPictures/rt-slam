@@ -43,7 +43,7 @@ namespace jafar {
 				LandmarkAnchoredHomogeneousPoint(const simulation_t dummy, const map_ptr_t & mapPtr);
 
 				virtual ~LandmarkAnchoredHomogeneousPoint() {
-//					cout << "Deleted landmark: " << id() << ": " << typeName() << endl;
+//					std::cout << "Deleted landmark: " << id() << ": " << typeName() << std::endl;
 				}
 
 				virtual std::string typeName() const {
