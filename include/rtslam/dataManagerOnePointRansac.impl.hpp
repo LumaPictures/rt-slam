@@ -98,12 +98,12 @@ namespace jafar {
 						{
 							// try to match with low innovation
 							jblas::sym_mat P = jblas::identity_mat(obsCurrentPtr->expectation.size())*jmath::sqr(matcher->params.lowInnov);
-                     RoiSpec roi;
-                     if(obsCurrentPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
-                     {
-                        roi = RoiSpec(exp, P, 1.0);
-                        obsCurrentPtr->searchSize = roi.count();
-                     }
+							RoiSpec roi;
+							if(obsCurrentPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
+							{
+								roi = RoiSpec(exp, P, 1.0);
+								obsCurrentPtr->searchSize = roi.count();
+							}
 							else // Segment
 							{
 								// Rough approximation, this won't be used by Dseg Matcher, only by the simulator
@@ -127,16 +127,26 @@ namespace jafar {
 							}
 							obsCurrentPtr->events.measured = true;
 							
-							matcher->match(rawData, obsCurrentPtr->predictedAppearance, roi, obsCurrentPtr->measurement, obsCurrentPtr->observedAppearance);
-							if (obsCurrentPtr->getMatchScore() > matcher->params.threshold)
+							Measurement measurement(obsCurrentPtr->measurement.size());
+							matcher->match(rawData, obsCurrentPtr->predictedAppearance, roi, measurement, obsCurrentPtr->observedAppearance);
+
+							bool matched = false;
+							if (obsCurrentPtr->events.matched)
+								{ if (measurement.matchScore >= obsCurrentPtr->getMatchScore() - 1e-6) matched = true; } else
+								{ if (measurement.matchScore >= matcher->params.threshold) matched = true; }
+
+							if (matched)
 							{
 								#if PROJECT_MEAN_VISIBILITY
 								obsCurrentPtr->project();
 								#endif
+								// FIXME when we update measurement, we are not sure it is still inlier for previous sets...
+								Measurement measurement_old = obsCurrentPtr->measurement;
+								obsCurrentPtr->measurement = measurement;
 								if (isExpectedInnovationInlier(obsCurrentPtr, matcher->params.mahalanobisTh))
-								{
 									obsCurrentPtr->events.matched = true;
-								}
+								else
+									if (obsCurrentPtr->events.matched) obsCurrentPtr->measurement = measurement_old; // restore
 							}
 							
 							inlier = obsCurrentPtr->events.matched && 
@@ -188,7 +198,7 @@ namespace jafar {
 					for(ObsList::iterator obsIter = best_set->inlierObs.begin(); obsIter != best_set->inlierObs.end(); ++obsIter)
 					{
 						observation_ptr_t obsPtr = *obsIter;
-						
+
 						// 2a. add obs to buffer for EKF update
 						#if BUFFERED_UPDATE
 						mapPtr->filterPtr->stackCorrection(obsPtr->innovation, obsPtr->INN_rsl, obsPtr->ia_rsl);
