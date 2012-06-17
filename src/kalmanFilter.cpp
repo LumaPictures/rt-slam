@@ -62,14 +62,14 @@ namespace jafar {
 			ublas::noalias(K) = - prod(PJt_tmp, inn.iP_);
 		}
 
-		void ExtendedKalmanFilterIndirect::correct(const ind_array & ia_x, Innovation & inn, const mat & INN_rsl, const ind_array & ia_rsl)
+		void ExtendedKalmanFilterIndirect::correct(const ind_array & ia_x, Innovation & inn, const mat & INN_rsl, const ind_array & ia_rsl, bool correct_P)
 		{
 			// first the kalman gain
 			computeKalmanGain(ia_x, inn, INN_rsl, ia_rsl);
 
 			// mean and covariances update:
 			ublas::project(x_, ia_x) += prod(K, inn.x());
-			ublas::project(P_, ia_x, ia_x) += prod<sym_mat> (K, trans(PJt_tmp));
+			if (correct_P) ublas::project(P_, ia_x, ia_x) += prod<sym_mat> (K, trans(PJt_tmp));
 		}
 
 
@@ -81,7 +81,7 @@ namespace jafar {
 			corrStack.inn_size += inn.size();
 		}
 		
-		void ExtendedKalmanFilterIndirect::correctAllStacked(const ind_array & ia_x)
+		void ExtendedKalmanFilterIndirect::correctAllStacked(const ind_array & ia_x, bool correct_P)
 		{
 			PJt_tmp.resize(ia_x.size(), corrStack.inn_size, false);
 			stackedInnovation_x.resize(corrStack.inn_size, false);
@@ -130,7 +130,7 @@ namespace jafar {
 // JFR_DEBUG("correctAllStacked: dx " << prod(K, stackedInnovation_x));
 			// 3 correct
 			ublas::noalias(ublas::project(x_, ia_x)) += prod(K, stackedInnovation_x);
-			ublas::project(P_, ia_x, ia_x) += prod<sym_mat>(K, trans(PJt_tmp)); // noalias crashes
+			if (correct_P) ublas::project(P_, ia_x, ia_x) += prod<sym_mat>(K, trans(PJt_tmp)); // noalias crashes
 			
 			corrStack.clear();
 		}

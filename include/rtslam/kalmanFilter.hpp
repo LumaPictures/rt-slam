@@ -161,7 +161,7 @@ namespace jafar {
 				 * \param INN_rsl: the Jacobian wrt the states that contributed to the innovation
 				 * \param ia_rsl: the indices to these states
 				 */
-				void correct(const ind_array & iax, Innovation & inn, const mat & INN_rsl, const ind_array & ia_rsl);
+				void correct(const ind_array & iax, Innovation & inn, const mat & INN_rsl, const ind_array & ia_rsl, bool correct_P = true);
 
 				
 			protected:
@@ -196,7 +196,7 @@ namespace jafar {
 				
 			public:
 				void stackCorrection(Innovation & inn, const mat & INN_rsl, const ind_array & ia_rsl);
-				void correctAllStacked(const ind_array & iax);
+				void correctAllStacked(const ind_array & iax, bool correct_P = true);
 				void clearStack();
 
 		};

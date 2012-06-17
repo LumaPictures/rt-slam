@@ -87,6 +87,20 @@
  */
 #define RELEVANCE_TEST 0
 
+/*
+ * STATUS: in progress, do not use for now
+ * Only update P if innovation is significant wrt measurement uncertainty.
+ *
+ * This is similar to RELEVANCE_TEST except that we always update mean, and
+ * update covariance only if innovation is relevant wrt measurement noise.
+ *
+ * Works better than RELEVANCE_TEST, but still has problems of uncertainty
+ * growing too much, difficulty to tune the relevance threshold, and the robot
+ * position is sometimes under confident and moves instead of remaining static.
+ *
+ */
+#define RELEVANCE_TEST_P 0
+
 
 /*
  * STATUS: in progress, do not use for now
@@ -1231,7 +1245,7 @@ void demo_slam_main(world_ptr_t *world)
 	}
 
 	// wait for their init
-	std::cout << "Sensors are calibrating..." << std::flush;
+	std::cout << "Sensors are calibrating... DON'T MOVE THE SYSTEM!!" << std::flush;
 	if ((intOpts[iRobot] == 1 || intOpts[iGps] == 1 || intOpts[iGps] == 2) && !(intOpts[iReplay] & 1)) sleep(2);
 	std::cout << " done." << std::endl;
 					

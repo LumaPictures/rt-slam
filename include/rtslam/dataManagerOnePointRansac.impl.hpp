@@ -192,7 +192,7 @@ namespace jafar {
 				{
 					// 2. for each obs in inliers
 					JFR_DEBUG_BEGIN(); JFR_DEBUG_SEND("Updating with Ransac:");
-					#if RELEVANCE_TEST
+					#if RELEVANCE_TEST || RELEVANCE_TEST_P
 					double innovation_relevance = 0.0;
 					#endif
 					for(ObsList::iterator obsIter = best_set->inlierObs.begin(); obsIter != best_set->inlierObs.end(); ++obsIter)
@@ -202,7 +202,7 @@ namespace jafar {
 						// 2a. add obs to buffer for EKF update
 						#if BUFFERED_UPDATE
 						mapPtr->filterPtr->stackCorrection(obsPtr->innovation, obsPtr->INN_rsl, obsPtr->ia_rsl);
-						#if RELEVANCE_TEST
+						#if RELEVANCE_TEST || RELEVANCE_TEST_P
 						innovation_relevance += obsPtr->computeRelevance();
 						#endif
 						#else
@@ -212,7 +212,11 @@ namespace jafar {
 						if (obsPtr->computeRelevance() > jmath::sqr(matcher->params.relevanceTh))
 						#endif
 						{
+							#if RELEVANCE_TEST_P
+							obsPtr->update(obsPtr->computeRelevance() > jmath::sqr(matcher->params.relevanceTh));
+							#else
 							obsPtr->update();
+							#endif
 							obsPtr->events.updated = true;
 						}
 						#endif
@@ -224,7 +228,12 @@ namespace jafar {
 					if (innovation_relevance > jmath::sqr(matcher->params.relevanceTh))
 					#endif
 					{
+						#if RELEVANCE_TEST_P
+						innovation_relevance /= best_set->inlierObs.size();
+						mapPtr->filterPtr->correctAllStacked(mapPtr->ia_used_states(), innovation_relevance > jmath::sqr(matcher->params.relevanceTh));
+						#else
 						mapPtr->filterPtr->correctAllStacked(mapPtr->ia_used_states());
+						#endif
 						do_update = true;
 					}
 					#if RELEVANCE_TEST
@@ -376,7 +385,11 @@ namespace jafar {
 										numObs++;
 										JFR_DEBUG_SEND(" " << obsPtr->id());
 										//								kernel::Chrono update_chrono;
+										#if RELEVANCE_TEST_P
+										obsPtr->update(obsPtr->computeRelevance() > jmath::sqr(matcher->params.relevanceTh));
+										#else
 										obsPtr->update();
+										#endif
 										//								total_update_time += update_chrono.elapsedMicrosecond();
 									} // obsPtr->compatibilityTest(M_TH)
 								} // obsPtr->getScoreMatchInPercent()>SC_TH

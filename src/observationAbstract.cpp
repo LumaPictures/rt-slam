@@ -241,10 +241,10 @@ namespace jafar {
 				((int*)&counters)[i] = 0;
 		}
 
-		void ObservationAbstract::update() {
+		void ObservationAbstract::update(bool correct_P) {
 			map_ptr_t mapPtr = sensorPtr()->robotPtr()->mapPtr();
 			ind_array ia_x = mapPtr->ia_used_states();
-			mapPtr->filterPtr->correct(ia_x,innovation,INN_rsl,ia_rsl) ;
+			mapPtr->filterPtr->correct(ia_x,innovation,INN_rsl,ia_rsl, correct_P) ;
 		}
 #if 0
 		bool ObservationAbstract::voteForKillingLandmark(){
