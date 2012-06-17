@@ -101,7 +101,7 @@ namespace jafar {
 							RoiSpec roi;
 							if(obsCurrentPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
 							{
-								roi = RoiSpec(exp, P, 1.0);
+								roi = RoiSpec(exp, P, 2.0);
 								obsCurrentPtr->searchSize = roi.count();
 							}
 							else // Segment
@@ -320,13 +320,13 @@ namespace jafar {
 								obsPtr->events.measured = true;
 
 								// 1c. predict search area and appearance
-                        RoiSpec roi;
-                        if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
-                        {
-                           roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
-                           obsPtr->searchSize = roi.count();
-                           if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
-                        }
+								RoiSpec roi;
+								if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
+								{
+									 roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
+									 obsPtr->searchSize = roi.count();
+									 if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
+								}
 								else // Segment
 								{
 									// Rough approximation, this won't be used by Dseg Matcher, only by the simulator
@@ -693,14 +693,13 @@ namespace jafar {
 			#endif
 
 			if (obsPtr->predictAppearance())
-         {
-
-            RoiSpec roi;
-            if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and having a size4 expectation the following roi computation fails, hence the test  - TODO clean up all this, is should not mess with One point ransac
-            {
-               roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
-               obsPtr->searchSize = roi.count();
-               if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
+			{
+				RoiSpec roi;
+				if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and having a size4 expectation the following roi computation fails, hence the test  - TODO clean up all this, is should not mess with One point ransac
+				{
+					roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
+					obsPtr->searchSize = roi.count();
+					if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
 				}
 				else // Segment
 				{
