@@ -178,9 +178,12 @@ namespace hardware {
 			//if (!emptied_buffers) { date = kernel::Clock::getTime()-date; if (date < 0.004) continue; else emptied_buffers = true; }
 			bufferSpecPtr[buff_write]->arrival = kernel::Clock::getTime();
 			bufferSpecPtr[buff_write]->timestamp = ts.tv_sec + ts.tv_usec*1e-6;
+			boost::unique_lock<boost::mutex> l(mutex_data);
+			arrival_delay = bufferSpecPtr[buff_write]->arrival - bufferSpecPtr[buff_write]->timestamp;
 			last_timestamp = bufferSpecPtr[buff_write]->timestamp;
+			incWritePos(true);
+			l.unlock();
 #endif
-			incWritePos();
 			if (condition) condition->setAndNotify(1);
 		}
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }

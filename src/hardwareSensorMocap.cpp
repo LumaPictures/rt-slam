@@ -41,6 +41,7 @@ namespace hardware {
 			{
 				// TODO read data from sensor and put it in reading
 				reading.arrival = kernel::Clock::getTime();
+				//arrival_delay = reading.arrival - reading.data(0);
 			}
 			
 			int buff_write = getWritePos();

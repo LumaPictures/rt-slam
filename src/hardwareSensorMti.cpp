@@ -62,6 +62,7 @@ namespace hardware {
 				reading.data(7) = data.MAG[0];
 				reading.data(8) = data.MAG[1];
 				reading.data(9) = data.MAG[2];
+				arrival_delay = reading.arrival - reading.data(0);
 #endif
 			}
 			int buff_write = getWritePos();

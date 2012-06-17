@@ -128,7 +128,7 @@ namespace jafar {
 			}
 		}
 		
-		void SensorExteroAbstract::process(unsigned id)
+		void SensorExteroAbstract::process(unsigned id, double date_limit)
 		{
 			// get data
 			hardwareSensorPtr->getRaw(id, rawPtr);
@@ -137,10 +137,20 @@ namespace jafar {
 			// observe
 			for (DataManagerList::iterator dmaIter = dataManagerList().begin(); dmaIter != dataManagerList().end(); ++dmaIter)
 			{
+				// TODO enable time management in detectNew as well, and estimate how much time will be needed by manage and detectNew
+				const double time_manage_detect = 0.000; // try nothing for now because processKnown will often stop before
 				data_manager_ptr_t dmaPtr = *dmaIter;
-				dmaPtr->processKnown(rawPtr);
-				dmaPtr->mapManagerPtr()->manage();
-				dmaPtr->detectNew(rawPtr);
+				double date_limit_process = date_limit - time_manage_detect;
+				double date_now = kernel::Clock::getTime();
+				bool zap_process = false;
+				if (date_limit < 0 || date_now < date_limit_process)
+					dmaPtr->processKnown(rawPtr, date_limit_process);  else zap_process = true;
+				date_now = kernel::Clock::getTime();
+				if (!zap_process || date_now < date_limit)
+					dmaPtr->mapManagerPtr()->manage();
+				date_now = kernel::Clock::getTime();
+				if (!zap_process || date_now < date_limit)
+					dmaPtr->detectNew(rawPtr);
 			}
 			
 			//hardwareSensorPtr->release();

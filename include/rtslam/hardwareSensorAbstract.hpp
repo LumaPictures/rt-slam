@@ -164,8 +164,11 @@ class HardwareSensorAbstract
 			This is a starting point that must be overestimated,
 			it may be estimated more precisely afterwards.
 		*/
-		virtual void getTimingInfos(double &data_period, double &arrival_delay)
-			{ data_period = this->data_period; arrival_delay = this->arrival_delay; }
+		virtual void getTimingInfos(double &data_period, double &arrival_delay, bool locked = false)
+		{
+			boost::unique_lock<boost::mutex> l(mutex_data, boost::defer_lock_t()); if (!locked) l.lock();
+			data_period = this->data_period; arrival_delay = this->arrival_delay;
+		}
 		virtual void setTimingInfos(double data_period, double arrival_delay)
 			{ this->data_period = data_period; this->arrival_delay = arrival_delay; }
 		

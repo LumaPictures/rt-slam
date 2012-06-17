@@ -21,7 +21,7 @@
  * STATUS: working fine, use it
  * Ransac ensures that we use correct observations for a few first updates,
  * allowing bad observations to be more easily detected by gating
- * You can disable it by setting N_UPDATES_RANSAC to 0
+ * You can disable it by setting N_UPDATES_RANSAC to 0 in config file
  */
 #define RANSAC_FIRST 1
 
@@ -121,6 +121,16 @@
 	#error "dseg module is required for segment based slam"
 	#endif
 #endif
+
+
+/*
+ * STATUS: seems to work ok, needs a bit more testing but you can try it
+ * This option will allocate time to data managers to make them stop
+ * updating observations when there is no time anymore, in order to avoid
+ * missing frames.
+ */
+
+#define REAL_TIME_LIVE_RUN 0
 
 
 /** ############################################################################
@@ -1323,7 +1333,11 @@ int n_innovation = 0;
 				JFR_DEBUG("Robot state stdev after move " << stdevFromCov(robPtr->state.P()));
 				robot_prediction = robPtr->state.x();
 				
-				pinfo.sen->process(pinfo.id);
+				#if REAL_TIME_LIVE_RUN
+				pinfo.sen->process(pinfo.id, pinfo.date_next);
+				#else
+				pinfo.sen->process(pinfo.id, -1.);
+				#endif
 				
 				JFR_DEBUG("Robot state after corrections of sensor " << pinfo.sen->id() << " : " << robPtr->state.x() << " ; euler " << quaternion::q2e(ublas::subrange(robPtr->state.x(), 3, 7)));
 				JFR_DEBUG("Robot state stdev after corrections " << stdevFromCov(robPtr->state.P()));

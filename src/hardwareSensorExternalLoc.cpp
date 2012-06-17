@@ -110,6 +110,7 @@ namespace hardware {
 					}
 				}
 
+				arrival_delay = reading.arrival - datavec(0);
 			}
 
 			switch (data_type)

@@ -85,6 +85,7 @@ namespace hardware {
 				reading.data(5) = var[0];
 				reading.data(6) = var[2];
 				//std::cout << "GPS poster : " << std::setprecision(15) << reading.data << std::endl;
+				arrival_delay = reading.arrival - reading.data(0);
 			}
 			
 			int buff_write = getWritePos();

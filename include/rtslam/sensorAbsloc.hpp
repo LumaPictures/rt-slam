@@ -126,7 +126,7 @@ namespace jafar {
 				}
 				
 
-				virtual void process(unsigned id)
+				virtual void process(unsigned id, double date_limit)
 				{
 					if (use_for_init)
 						init(id);
