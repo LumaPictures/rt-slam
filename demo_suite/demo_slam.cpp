@@ -1431,6 +1431,8 @@ int n_innovation = 0;
 
 	average_robot_innovation /= n_innovation;
 	std::cout << "average_robot_innovation " << average_robot_innovation << std::endl;
+	robot_ptr_t robPtr = (*world)->mapList().front()->robotList().front();
+	std::cout << "final_robot_position " << robPtr->state.x(0) << " " << robPtr->state.x(1) << " " << robPtr->state.x(2) << std::endl;
 
 	if (exporter) exporter->stop();
 	(*world)->slam_blocked(true);
