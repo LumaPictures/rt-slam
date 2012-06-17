@@ -35,6 +35,10 @@
  */
 #define PROJECT_MEAN_VISIBILITY 1
 
+#if RELEVANCE_TEST && RELEVANCE_TEST_P
+	#error "RELEVANCE_TEST and RELEVANCE_TEST_P are incompatible!"
+#endif
+
 namespace jafar {
 	namespace rtslam {
 
@@ -243,12 +247,14 @@ namespace jafar {
 					bool do_update = false;
 					#if BUFFERED_UPDATE
 					// 3. perform buffered update
+					#if RELEVANCE_TEST || RELEVANCE_TEST_P
+					innovation_relevance /= best_set->inlierObs.size();
+					#endif
 					#if RELEVANCE_TEST
 					if (innovation_relevance > jmath::sqr(matcher->params.relevanceTh))
 					#endif
 					{
 						#if RELEVANCE_TEST_P
-						innovation_relevance /= best_set->inlierObs.size();
 						mapPtr->filterPtr->correctAllStacked(mapPtr->ia_used_states(), innovation_relevance > jmath::sqr(matcher->params.relevanceTh));
 						#else
 						mapPtr->filterPtr->correctAllStacked(mapPtr->ia_used_states());

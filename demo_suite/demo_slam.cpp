@@ -65,7 +65,7 @@
 
 /*
  * STATUS: in progress, do not use for now
- * Only update if innovation is significant wrt measurement uncertainty.
+ * Only update if expectation uncertainty is significant wrt measurement uncertainty.
  * 
  * Large updates are causing inconsistency because of linearization errors,
  * but too numerous updates are also causing inconsistency, 
@@ -88,16 +88,15 @@
 #define RELEVANCE_TEST 0
 
 /*
- * STATUS: in progress, do not use for now
- * Only update P if innovation is significant wrt measurement uncertainty.
+ * STATUS: seems to improve things, needs more testing but you can try it
+ * Only update P if expectation uncertainty is significant wrt measurement uncertainty.
  *
  * This is similar to RELEVANCE_TEST except that we always update mean, and
- * update covariance only if innovation is relevant wrt measurement noise.
+ * update covariance only if innovation is relevant wrt measurement noise,
+ * and it is more stable than RELEVANCE_TEST.
  *
- * Works better than RELEVANCE_TEST, but still has problems of uncertainty
- * growing too much, difficulty to tune the relevance threshold, and the robot
- * position is sometimes under confident and moves instead of remaining static.
- *
+ * Needs testing to see if it is stable enough and how to tune the relevance
+ * threshold.
  */
 #define RELEVANCE_TEST_P 0
 

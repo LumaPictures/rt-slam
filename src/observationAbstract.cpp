@@ -209,11 +209,12 @@ namespace jafar {
 		}
 
 		double ObservationAbstract::computeRelevance() {
-			// compute innovation score = squared mahalanobis distance of innovation.x wrt measurement.P
-			// but for faster result, and because measurement.P will probably always be diagonal, only use diagonal elements
+			// compute relevance score, maybe a ratio of areas would be better, but this is
+			// more simple and more general and should work ok
 			innovation.relevance = 0.0;
 			for (size_t i = 0; i < measurement.size(); ++i)
-				innovation.relevance += jmath::sqr(innovation.x()(i))/measurement.P(i,i);
+				innovation.relevance += expectation.P(i,i)/measurement.P(i,i);
+			innovation.relevance /= measurement.size();
 			return innovation.relevance;
 		}
 
