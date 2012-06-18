@@ -663,6 +663,7 @@ std::cout << "connecting slots" << std::endl;
 	void SensorQt::onMouseClick(QGraphicsSceneMouseEvent *mouseEvent, bool isClick)
 	{
 		if (!isClick) return;
+		if (!viewerQt->runStatus.pause) return;
 		QGraphicsItem *clickedItem = viewer_->scene()->itemAt(mouseEvent->buttonDownScenePos(mouseEvent->button()));
 		ObservationAbstract *clickedObs = NULL;
 		
