@@ -39,8 +39,17 @@ namespace jafar {
 			//ObservationAbstract::setup(reparTh, killSizeTh, killSearchTh, killMatchTh, killConsistencyTh);
 			//ObservationAbstract::setup(_noiseStd, getPrior());
 			Gaussian prior(1);
+
+			// original, 2 sigmas at dmin, 1 sigma at infinity
 			prior.x(0) = 1/(3*dmin);
 			prior.P(0,0) = prior.x(0)*prior.x(0);
+			// 3 sigmas at infinity and dmin
+//			prior.x(0) = 1./(2.*dmin);
+//			prior.P(0,0) = (prior.x(0)/3.)*(prior.x(0)/3.);
+			// 2 sigmas at infinity and dmin
+//			prior.x(0) = 1./(2.*dmin);
+//			prior.P(0,0) = (prior.x(0)/2.)*(prior.x(0)/2.);
+
 			setPrior(prior);
 		}
 
