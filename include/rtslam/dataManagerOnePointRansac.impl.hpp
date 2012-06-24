@@ -149,7 +149,7 @@ namespace jafar {
 								roi = RoiSpec(rect);
 							}
 							obsCurrentPtr->events.measured = true;
-							
+
 							Measurement measurement(obsCurrentPtr->measurement.size());
 							matcher->match(rawData, obsCurrentPtr->predictedAppearance, roi, measurement, obsCurrentPtr->observedAppearance);
 
@@ -241,6 +241,7 @@ namespace jafar {
 							obsPtr->update();
 							#endif
 							obsPtr->events.updated = true;
+
 						}
 						#endif
 					}
@@ -467,6 +468,7 @@ namespace jafar {
 				obs->updateVisibilityMap();
 				#endif
 				
+				if (obs->events.measured) obs->updatable = obs->events.updated;
 				if (not (obs->events.measured && !obs->events.matched && !obs->isDescriptorValid()))
 				{
 					if (obs->events.measured) obs->counters.nSearch++;
@@ -518,7 +520,8 @@ namespace jafar {
 						obsPtr->events.measured = true;
 						obsPtr->events.matched = false;
 						obsPtr->events.updated = true;
-                  obsPtr->measurement = featPtr->measurement;
+						obsPtr->updatable = true;
+						obsPtr->measurement = featPtr->measurement;
 
 						// 2c. compute and fill stochastic data for the landmark
 						obsPtr->backProject();

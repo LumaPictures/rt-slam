@@ -218,6 +218,7 @@ namespace jafar {
 						bool matched;      ///< Feature is successfully matched
 						bool updated;      ///< Landmark is updated
 				} events;
+				bool updatable; ///< last time it was measured, was it updated
 				
 				/**
 				 * Tasks

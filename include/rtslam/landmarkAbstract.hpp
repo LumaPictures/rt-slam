@@ -89,6 +89,8 @@ namespace jafar {
 				};
 				type_enum type;
 				bool converged;
+				bool visible;
+				bool updatable;
 
 			protected:
 				geometry_t geomType;
@@ -118,6 +120,16 @@ namespace jafar {
 				 * Size of the reparametrized landmark
 				 */
 				virtual size_t reparamSize() = 0;
+
+				/**
+				 * Position x,y,z of the center of the landmark
+				 */
+				virtual jblas::vec3 center() = 0;
+
+				/**
+				 * The max uncertainty of the landmark position (3 sigma in meters)
+				 */
+				virtual double uncertainty() = 0;
 
 				// Create a landmark descriptor
 				virtual void setDescriptor(const descriptor_ptr_t & descPtr)
@@ -154,6 +166,11 @@ namespace jafar {
 				virtual bool needToReparametrize(DecisionMethod repMethod = ALL);
 #endif
 				virtual void transferInfoLmk(landmark_ptr_t & lmkSourcePtr);
+
+
+				void fillEvents();
+
+				unsigned countObserved();
 
 		};
 

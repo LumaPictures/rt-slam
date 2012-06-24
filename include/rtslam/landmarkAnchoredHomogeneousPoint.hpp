@@ -62,6 +62,17 @@ namespace jafar {
 
 				virtual size_t reparamSize() {return LandmarkEuclideanPoint::size();}
 
+				virtual jblas::vec3 center() { return reparametrize_func(state.x()); }
+
+				virtual double uncertainty()
+				{
+					// max uncertainty of an AHP will almost always be depth uncertainty
+					double id = state.x()(6);
+					double ID = 3. * sqrt(state.P()(6,6));
+					if (id-ID <= 0) return 1e6;
+										 else return (1./(id-ID) - 1./id);
+				}
+
 				virtual vec reparametrize_func(const vec & lmk) const {
 					return lmkAHP::ahp2euc(lmk);
 				}

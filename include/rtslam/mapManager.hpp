@@ -9,9 +9,13 @@
 #ifndef MAPMANAGER_HPP_
 #define MAPMANAGER_HPP_
 
+#include <list>
+
 #include "rtslam/parents.hpp"
 #include "rtslam/mapAbstract.hpp"
 #include "rtslam/landmarkFactory.hpp"
+#include "rtslam/spaceGrid.hpp"
+
 
 namespace jafar {
 	namespace rtslam {
@@ -84,7 +88,7 @@ namespace jafar {
 					Returns if the given observation must be exclusive in the FeatureManager
 					(ie we believe there are good chances to find it again very soon),
 					or if new landmarks can be initialized ignoring this observation
-					(ie we believe there are few chances to find it again very soon)
+					(ie we believe there is little chance to find it again very soon)
 				*/
 				virtual bool isExclusive(observation_ptr_t obsPtr) = 0;
 		};
@@ -139,19 +143,41 @@ namespace jafar {
 			Map manager made for doing slam as long as possible while optimizing
 			the use of the map. When the map is full, lower quality and spatially
 			redundant landmarks are removed to make room for new landmarks.
+			Kill if:
+			- not visible and too young
+			- not visible and too uncertain
+			- too unstable (weak ratio of matched and consistent when searched)
+			- too redundant (too close to another one with better uncertainty)
 		*/
 		class MapManagerGlobal: public MapManager {
 			protected:
+				struct Cell { std::list<landmark_ptr_t> landmarks; };
+
 				double killSearchTh;      ///< minimum number of times the landmark must have been searched to be deleted for match or consistency reasons
 				double killMatchTh;       ///< ratio match/search threshold
 				double killConsistencyTh; ///< ratio consistency/search threshold
+				double killUncertaintyTh;     ///< ratio uncertainty/dist threshold
+				SphericalGrid<Cell> grid_visible_updated;
+				SphericalGrid<Cell> grid_visible_failed;
+				SphericalGrid<Cell> grid_invisible;
+
+			protected:
+				void fillGrids(bool fill_visible);
+				void processGrid(SphericalGrid<Cell> & grid);
+
 			public:
 				MapManagerGlobal(landmark_factory_ptr_t lmkFactory, double reparTh, double killSizeTh,
-				                double killSearchTh, double killMatchTh, double killConsistencyTh):
+												double killSearchTh, double killMatchTh, double killConsistencyTh, double killUncertaintyTh,
+												double gridAngularRes, double gridDistInit, double gridDistFactor, int gridNDist, double gridPhiFactor):
 				  MapManager(lmkFactory, reparTh, killSizeTh),
-				  killSearchTh(killSearchTh), killMatchTh(killMatchTh), killConsistencyTh(killConsistencyTh) {}
+					killSearchTh(killSearchTh), killMatchTh(killMatchTh), killConsistencyTh(killConsistencyTh), killUncertaintyTh(killUncertaintyTh),
+					grid_visible_updated(gridAngularRes, gridDistInit, gridDistFactor, gridNDist, gridPhiFactor),
+					grid_visible_failed(gridAngularRes, gridDistInit, gridDistFactor, gridNDist, gridPhiFactor),
+					grid_invisible(gridAngularRes, gridDistInit, gridDistFactor, gridNDist, gridPhiFactor)
+					{}
 				virtual void manageDeletion();
 				virtual bool mapSpaceForInit();
+				virtual bool isExclusive(observation_ptr_t obsPtr);
 		};
 		
 		

@@ -65,6 +65,20 @@ namespace jafar {
 
 				virtual size_t reparamSize() {return size();}
 
+				virtual jblas::vec3 center() { return ublas::subrange(state.x(), 0, 3); }
+
+				virtual double uncertainty()
+				{
+					// max uncertainty of each axis is a fair approximation
+					double max_uncert = 0.;
+					for(int i = 0; i < 3; ++i)
+					{
+						double uncert = state.P()(i,i);
+						if (uncert > max_uncert) max_uncert = uncert;
+					}
+					return 3 * sqrt(max_uncert);
+				}
+
 				virtual vec reparametrize_func(const vec & lmk) const {
 					return lmk;
 				}

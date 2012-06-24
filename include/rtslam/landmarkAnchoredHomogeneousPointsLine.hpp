@@ -65,6 +65,25 @@ namespace jafar {
 
         virtual size_t reparamSize() {/*return size();*/ vec6 v; return v.size();} // TODO clean up
 
+				virtual jblas::vec3 center() {
+					vec6 euc = reparametrize_func(state.x());
+					return (ublas::subrange(euc,0,3)+ublas::subrange(euc,3,6))/2; // FIXME maybe better with current extremities ; where are they?
+				}
+
+				virtual double uncertainty()
+				{
+					// max uncertainty of an AHP will almost always be depth uncertainty
+					double id = state.x()(6);
+					double ID = 3. * sqrt(state.P()(6,6));
+					double uncert1 = (id-ID <= 0) ? 1e6 : (1./(id-ID) - 1./id);
+
+					id = state.x()(10);
+					ID = 3. * sqrt(state.P()(10,10));
+					double uncert2 = (id-ID <= 0) ? 1e6 : (1./(id-ID) - 1./id);
+
+					return (uncert1 >= uncert2) ? uncert1 : uncert2;
+				}
+
         virtual vec reparametrize_func(const vec & lmk) const {
           vec6 ret;
           vec7 lmk1;

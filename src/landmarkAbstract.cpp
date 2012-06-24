@@ -297,5 +297,27 @@ namespace jafar {
 //			}
 		}
 
+
+		void LandmarkAbstract::fillEvents()
+		{
+			visible = updatable = false;
+			for(ObservationList::iterator obsIter = observationList().begin();
+					obsIter != observationList().end(); ++obsIter)
+			{
+				if ((*obsIter)->events.visible) visible = true;
+				if ((*obsIter)->updatable) updatable = true;
+			}
+		}
+
+		unsigned LandmarkAbstract::countObserved()
+		{
+			unsigned obs = 0;
+			for(ObservationList::iterator obsIter = observationList().begin();
+					obsIter != observationList().end(); ++obsIter)
+				obs += (*obsIter)->counters.nInlier;
+			return obs;
+		}
+
+
 	}
 }

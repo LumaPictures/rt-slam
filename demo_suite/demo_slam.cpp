@@ -628,15 +628,24 @@ void demo_slam_init()
 	// 1. Create maps.
 	map_ptr_t mapPtr(new MapAbstract(configEstimation.MAP_SIZE));
 	mapPtr->linkToParentWorld(worldPtr);
+
+	// should be min over all camera sensors
+	double cell_fov, min_cell_fov = 1e10;
+	cell_fov = 2. * atan(img_width / (2. * intrinsic(2))) / configEstimation.GRID_HCELLS;
+	if (cell_fov < min_cell_fov) min_cell_fov = cell_fov;
+	cell_fov = 2. * atan(img_height / (2. * intrinsic(3))) / configEstimation.GRID_VCELLS;
+	if (cell_fov < min_cell_fov) min_cell_fov = cell_fov;
+	min_cell_fov /= 2.; // security factor
+	min_cell_fov *= 180./M_PI;
 	
-   // 1b. Create map manager.
+	 // 1b. Create map manager.
 	landmark_factory_ptr_t pointLmkFactory;
 	landmark_factory_ptr_t segLmkFactory;
 #if SEGMENT_BASED
-   segLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPointsLine, LandmarkAnchoredHomogeneousPointsLine>());
+	 segLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPointsLine, LandmarkAnchoredHomogeneousPointsLine>());
 #endif
 #if SEGMENT_BASED != 1
-   pointLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPoint, LandmarkEuclideanPoint>());
+	 pointLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPoint, LandmarkEuclideanPoint>());
 #endif
 	map_manager_ptr_t mmPoint;
 	map_manager_ptr_t mmSeg;
@@ -650,10 +659,21 @@ void demo_slam_init()
 			break;
 		}
 		case 1: { // global
+			const int killSearchTh = 20;
+			const double killMatchTh = 0.5;
+			const double killConsistencyTh = 0.5;
+			const double killUncertaintyTh = 0.5;
+			const double gridDistInit = 0.5;
+			const double gridDistFactor = 2.0;
+			const int gridNDist = 5;
+			const double gridPhiFactor = 1.2;
+
 			if(pointLmkFactory != NULL)
-				mmPoint.reset(new MapManagerGlobal(pointLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE, 30, 0.5, 0.5));
+				mmPoint.reset(new MapManagerGlobal(pointLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE,
+					killSearchTh, killMatchTh, killConsistencyTh, killUncertaintyTh, min_cell_fov, gridDistInit, gridDistFactor, gridNDist, gridPhiFactor));
 			if(segLmkFactory != NULL)
-				mmSeg.reset(new MapManagerGlobal(segLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE, 30, 0.5, 0.5));
+				mmSeg.reset(new MapManagerGlobal(segLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE,
+					killSearchTh, killMatchTh, killConsistencyTh, killUncertaintyTh, min_cell_fov, gridDistInit, gridDistFactor, gridNDist, gridPhiFactor));
 			break;
 		}
 		case 2: { // local/multimap
@@ -661,7 +681,7 @@ void demo_slam_init()
 				mmPoint.reset(new MapManagerLocal(pointLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE));
 			if(segLmkFactory != NULL)
 				mmSeg.reset(new MapManagerLocal(segLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE));
-			break;	
+			break;
 		}
 	}
 	if(mmPoint != NULL)
@@ -1178,7 +1198,7 @@ void demo_slam_init()
 		sensorManager.reset(new SensorManagerReplay(mapPtr));
 	else
 		sensorManager.reset(new SensorManagerOneAndOne(mapPtr));
-	
+
 	//--- force a first display with empty slam to ensure that all windows are loaded
 // std::cout << "SLAM: forcing first initialization display" << std::endl;
 	#ifdef HAVE_MODULE_QDISPLAY
