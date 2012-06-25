@@ -653,6 +653,13 @@ std::cout << "connecting slots" << std::endl;
 				std::cout << "render-all: " << (viewerQt->runStatus.render_all ? "ON" : "OFF") << std::endl;
 				break;
 			}
+			case Qt::Key_M:
+			case Qt::Key_V: { // find image marker / orient vset
+				boost::unique_lock<boost::mutex> runStatus_lock(viewerQt->runStatus.mutex);
+				viewerQt->runStatus.find_marker = !viewerQt->runStatus.find_marker;
+				runStatus_lock.unlock();
+				break;
+			}
 			case Qt::Key_Q: { // quit
 				QApplication::quit();
 				break;

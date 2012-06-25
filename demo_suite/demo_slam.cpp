@@ -87,6 +87,14 @@
  */
 #define RELEVANCE_TEST 0
 
+/*
+ * STATUS: in progress
+ * Ability to search for known image markers, to provide relative positioning
+ *
+ */
+
+#define MARKER_SEARCH 1
+
 
 /*
  * STATUS: in progress, do not use for now
@@ -170,6 +178,9 @@
 #include "rtslam/hardwareEstimatorInertialAdhocSimulator.hpp"
 #include "rtslam/exporterSocket.hpp"
 
+#if MARKER_SEARCH
+#include "rtslam/dataManagerMarkerFinder.hpp"
+#endif // MARKER_SEARCH
 
 /** ############################################################################
  * #############################################################################
@@ -195,6 +206,10 @@ typedef ImagePointObservationMaker<ObservationPinHoleAnchoredHomogeneousPoint, S
 
 typedef DataManagerOnePointRansac<RawImage, SensorPinhole, FeatureImagePoint, image::ConvexRoi, ActiveSearchGrid, ImagePointHarrisDetector, ImagePointZnccMatcher> DataManager_ImagePoint_Ransac;
 typedef DataManagerOnePointRansac<simu::RawSimu, SensorPinhole, simu::FeatureSimu, image::ConvexRoi, ActiveSearchGrid, simu::DetectorSimu<image::ConvexRoi>, simu::MatcherSimu<image::ConvexRoi> > DataManager_ImagePoint_Ransac_Simu;
+
+#if MARKER_SEARCH
+typedef DataManagerMarkerFinder<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
+#endif
 
 #if SEGMENT_BASED
 typedef SegmentObservationMaker<ObservationPinHoleAnchoredHomogeneousPointsLine, SensorPinhole, LandmarkAnchoredHomogeneousPointsLine,
@@ -1157,6 +1172,13 @@ void demo_slam_init()
 			senPtr11->setNeedInit(true); // for auto exposure
 
 		}
+
+#if MARKER_SEARCH
+		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder());
+		dmImf11->linkToParentSensorSpec(senPtr11);
+		dmImf11->linkToParentMapManager(mmPoint);
+#endif // MARKER_SEARCH
+
 	} // if (intOpts[iCamera])
 
 	if (intOpts[iGps])

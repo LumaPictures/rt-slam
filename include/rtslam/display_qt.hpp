@@ -46,9 +46,10 @@ struct RunStatus
 	bool pause;
 	bool next;
 	bool render_all;
+	bool find_marker;
 	boost::condition_variable condition;
 	boost::mutex mutex;
-	RunStatus(): next(false) {}
+	RunStatus(): next(false), find_marker(false) {}
 };
 
 
