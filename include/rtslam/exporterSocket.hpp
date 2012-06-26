@@ -78,7 +78,7 @@ namespace rtslam {
 			boost::mutex mutex_data;
 			kernel::VariableCondition<int> condition_send;
 			
-			static const int message_size = 36;
+			static const int message_size = 25;
 			short port;
 			std::vector<socket_ptr> socks;
 			double message[message_size];
@@ -98,27 +98,25 @@ namespace rtslam {
 					// FIXME works only for inertial, should be fixed with the general state framework
 					/*
 					(1 double)   time
-					(16 double) pos(x,y,z) quat(qw,qx,qy,qz) euler(yaw,pitch,roll)
+					(12 double) pos(x,y,z) euler(yaw,pitch,roll)
 					vel(vx,vy,vz) avel(vyaw,vpitch,vroll)
-					(16 double) variances
+					(12 double) variances
 					
 					robot : p q v ab wb g
 					*/
-					jblas::vec &state = robPtr->mapPtr()->filterPtr->x();
-					jblas::sym_mat &stateCov = robPtr->mapPtr()->filterPtr->P();
+					jblas::vec state(6), stateStd(6);
+					robPtr->slamPoseToRobotPose(ublas::subrange(robPtr->mapPtr()->filterPtr->x(),0,7), ublas::subrange(robPtr->mapPtr()->filterPtr->P(), 0,7,0,7), state, stateStd);
+
 					message[0] = robPtr->self_time;
-					for(int i = 0; i < 3; ++i) message[i+1] = state(i)+robPtr->origin_sensors(i)-robPtr->origin_export(i);
-					for(int i = 3; i < 7; ++i) message[i+1] = state(i);
-					jblas::vec3 euler = quaternion::q2e(ublas::subrange(state,3,7));
-					for(int i = 7; i < 10; ++i) message[i+1] = euler(i-7);
-					std::swap(message[7+1], message[9+1]); // convention roll/pitch/yaw to yaw/pitch/roll
-					for(int i = 10; i < 13; ++i) message[i+1] = state(i-3);
-					for(int i = 13; i < 16; ++i) message[i+1] = 0.; // TODO get value from MTI, with some "non filtered state" feature
+					for(int i = 0; i < 6; ++i) message[i+1] = state(i);
+					std::swap(message[3+1], message[5+1]); // convention roll/pitch/yaw to yaw/pitch/roll
+					for(int i = 6; i < 9; ++i) message[i+1] = robPtr->mapPtr()->filterPtr->x(i);
+					for(int i = 9; i < 12; ++i) message[i+1] = 0.; // TODO get value from MTI, with some "non filtered state" feature
 					
-					for(int i = 0; i < 7; ++i) message[i+1+17] = sqrt(stateCov(i,i));
-					for(int i = 7; i < 10; ++i); //TODO euler cov
-					for(int i = 10; i < 13; ++i) message[i+1+17] = sqrt(stateCov(i-3,i-3));
-					for(int i = 13; i < 16; ++i) message[i+1+17] = 0.; // TODO get value from MTI, with some "non filtered state" feature
+					for(int i = 0; i < 6; ++i) message[i+1+12] = sqrt(stateStd(i));
+					std::swap(message[3+1+12], message[5+1+12]); // convention roll/pitch/yaw to yaw/pitch/roll
+					for(int i = 6; i < 9; ++i) message[i+1+12] = sqrt(robPtr->mapPtr()->filterPtr->P(i,i));
+					for(int i = 9; i < 12; ++i) message[i+1+12] = 0.; // TODO get value from MTI, with some "non filtered state" feature
 					
 					mutex_data.unlock();
 					condition_send.setAndNotify(1);

@@ -45,6 +45,7 @@ namespace jafar {
 
 		/**
 		 * Inertial measurements unit - robot motion model.
+		 * The SLAM origin is the IMU origin.
 		 * \author jsola
 		 *
 		 * This motion model is driven by IMU measurements and random perturbations, and defined by:

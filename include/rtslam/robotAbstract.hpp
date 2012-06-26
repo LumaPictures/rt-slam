@@ -24,6 +24,7 @@
 #include "rtslam/gaussian.hpp"
 #include "rtslam/mapObject.hpp"
 #include "rtslam/perturbation.hpp"
+#include "rtslam/quatTools.hpp"
 // include parents
 #include "rtslam/mapAbstract.hpp"
 #include "rtslam/mapObject.hpp"
@@ -91,13 +92,16 @@ namespace jafar {
 				virtual ~RobotAbstract() {
 				}
 
-				void setPoseDegStd(double x, double y, double z, double rollDeg,
-				    double pitchDeg, double yawDeg, double xStd, double yStd, double zStd,
-				    double rollDegStd, double pitchDegStd, double yawDegStd);
-		
-				void setPoseStd(double x, double y, double z, double roll,
-				    double pitch, double yaw, double xStd, double yStd, double zStd,
-				    double rollStd, double pitchStd, double yawStd);
+				void setPoseStd(double x, double y, double z,
+					double roll, double pitch, double yaw,
+					double xStd, double yStd, double zStd,
+					double rollStd, double pitchStd, double yawStd,
+					bool degrees = false);
+				void setPositionStd(double x, double y, double z,
+					double xStd, double yStd, double zStd);
+				void setOrientationStd(double roll, double pitch, double yaw,
+					double rollStd, double pitchStd, double yawStd,
+					bool degrees = false);
 
 				
 				virtual std::string categoryName() const {
@@ -136,10 +140,63 @@ namespace jafar {
 				jblas::mat XNEW_pert; ///<      Jacobian wrt perturbation
 				jblas::sym_mat Q; ///<          Process noise covariances matrix in state space, Q = XNEW_pert * perturbation.P * trans(XNEW_pert);
 				
-				jblas::vec origin_sensors; ///< origin to get the initial state position at 0 / absolute sensors
-				jblas::vec origin_export; ///< origin of the exported position in absolute coordinates
-				void setOrigin(jblas::vec3 pos) { origin_export = pos; }
+				/**
+				 * Set the pose of the true robot in the slam robot frame
+				 * The Slam robot frame is the IMU frame for inertial slam, and as defined by the sensorPoses otherwise.
+				 */
+				void setRobotPose(jblas::vec6 const & pose_euler, bool degrees = false);
 				jblas::vec robot_pose; ///< the pose of the true robot in the slam robot frame, for exported position
+				/**
+				 * Set the absolute real robot initial full pose,
+				 * moving the translation part outside of the filter to origin.
+				 */
+				void setInitialPose(double x, double y, double z,
+					double roll, double pitch, double yaw,
+					double xStd, double yStd, double zStd,
+					double rollStd, double pitchStd, double yawStd,
+					bool degrees = false);
+				bool isOriginInit; ///< is origin initialized?
+				jblas::vec origin; ///< absolute slam start position (origin in absolute = 0 in filter)
+				/**
+				 * Set the absolute real robot initial orientation
+				 */
+				void setInitialOrientation(double roll, double pitch, double yaw,
+					double rollStd, double pitchStd, double yawStd,
+					bool degrees = false);
+				/**
+				 * Get the absolute real robot current full pose, in euler, at the given time
+				 * (must be roughly current time or a little bit in the future, cannot be before last sensor integration)
+				 */
+				void getCurrentPose(double time, jblas::vec & x, jblas::vec & P);
+				template<class VEC, class SYM_MAT>
+				void slamPoseToRobotPose(VEC const & slam_x, SYM_MAT const & slam_P, jblas::vec & robot_x, jblas::vec & robot_P) const
+				{
+					// convert mean
+					jblas::vec7 state_pose = ublas::subrange(slam_x,0,7);
+					jblas::vec7 quat_pose = quaternion::composeFrames(state_pose, robot_pose);
+					jblas::vec6 euler_pose;
+					ublas::subrange(euler_pose, 0,3) = ublas::subrange(quat_pose, 0,3) + origin;
+					mat E_q(3, 4);
+					jblas::vec3 euler_ori;
+					quaternion::q2e(ublas::subrange(quat_pose, 3, 7), euler_ori, E_q);
+					ublas::subrange(euler_pose, 3,6) = euler_ori;
+
+					// convert cov
+					mat FE_fq(6,7); FE_fq.clear();
+					ublas::subrange(FE_fq,0,3,0,3) = identity_mat(3);
+					ublas::subrange(FE_fq, 3,6,3,7) = E_q;
+
+					jblas::mat Q_s(7,7);
+					quaternion::composeFrames_by_dglobal(ublas::subrange(slam_x,0,7), robot_pose, Q_s);
+
+					mat FE_s = ublas::prod(FE_fq, Q_s);
+
+					jblas::sym_mat Export_pose = prod_JPJt(slam_P, FE_s);
+
+					robot_x = euler_pose;
+					for(int i = 0; i < 6; ++i) robot_P(i) = Export_pose(i,i);
+				}
+
 
 				boost::mutex mutex_extrapol;
 				bool extrapol_up_to_date;
@@ -238,7 +295,6 @@ namespace jafar {
 				 * move without moving (without doing slam), just to release the data
 				 */
 				void move_fake(double time);
-				void getPos(double time, jblas::vec & x, jblas::vec & P);
 
 				/**
 				 * Compute robot process noise \a Q in state space.

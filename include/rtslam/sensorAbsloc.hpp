@@ -45,8 +45,6 @@ namespace jafar {
 				jblas::mat EXP_q;
 				int inns; /// innovation size
 				int dats; /// data size
-				bool absolute;
-				bool first;
 
 			private:
 				size_t indexE_OriEuler, indexE_Pos, indexE_Bundleobs; /// indexes in expectation
@@ -54,15 +52,11 @@ namespace jafar {
 				hardware::HardwareSensorProprioAbstract::CovType covType;
 
 			public:
-				/**
-					@param absolute do we estimate the absolute position as returned by the sensor,
-					or do we estimate a relative position wrt the initial absolute position, and just
-					convert to absolute position before exporting.
-				*/
-				SensorAbsloc(const robot_ptr_t & robPtr, const filtered_obj_t inFilter = UNFILTERED, bool absolute = false):
+
+				SensorAbsloc(const robot_ptr_t & robPtr, const filtered_obj_t inFilter = UNFILTERED):
 				  SensorProprioAbstract(robPtr, inFilter),
 					ia_rs(ia_globalPose), innovation(NULL), measurement(NULL), expectation(NULL),
-					inns(0), dats(0), absolute(absolute), first(true)
+					inns(0), dats(0)
 				{}
 				~SensorAbsloc() { delete innovation; delete measurement; }
 				virtual void setHardwareSensor(hardware::hardware_sensorprop_ptr_t hardwareSensorPtr_)
@@ -77,13 +71,6 @@ namespace jafar {
 					EXP_rs.resize(inns, ia_rs.size(), false);
 					INN_rs.resize(inns, ia_rs.size(), false);
 					EXP_q.resize(3, 4, false);
-				}
-				
-				
-				virtual void init(unsigned id)
-				{
-					RawInfos infos;
-					queryAvailableRaws(infos);
 
 					// initialize type of data the hardware sensor is providing
 					size_t indexE = 0; // current index when building expectation
@@ -98,6 +85,13 @@ namespace jafar {
 					if (indexD_Bundleobs >= 0) { indexE_Bundleobs = indexE; indexE += hardwareSensorPtr->QuantityObsSizes[hardware::HardwareSensorProprioAbstract::qBundleobs]; }
 
 					covType = hardwareSensorPtr->covType();
+				}
+				
+				
+				virtual void init(unsigned id)
+				{
+					RawInfos infos;
+					queryAvailableRaws(infos);
 
 					// find minimum variance
 					jblas::vec3 min_var; min_var(0) = min_var(1) = min_var(2) = 1e3;
@@ -128,7 +122,7 @@ namespace jafar {
 
 				virtual void process(unsigned id, double date_limit)
 				{
-					if (use_for_init)
+					if (use_for_init && !robotPtr()->isOriginInit)
 						init(id);
 					else
 						hardwareSensorPtr->getRaw(id, reading);
@@ -151,7 +145,7 @@ namespace jafar {
 						ublas::subrange(expectation->x(), indexE_Pos,indexE_Pos+3) = p + Tr;
 
 						// fill measurement
-						ublas::subrange(measurement->x(), indexE_Pos,indexE_Pos+3) = ublas::subrange(reading.data, indexD_Pos,indexD_Pos+3) - robotPtr()->origin_sensors;
+						ublas::subrange(measurement->x(), indexE_Pos,indexE_Pos+3) = ublas::subrange(reading.data, indexD_Pos,indexD_Pos+3) - robotPtr()->origin;
 						for(int i = 0; i < 3; ++i) measurement->P()(indexE_Pos+i,indexE_Pos+i) = jmath::sqr(reading.data(indexD_Pos+i+dats));
 
 						// TODO gating ?
@@ -210,10 +204,10 @@ namespace jafar {
 					}
 
 
-					if (first)
+					if (use_for_init)
 					{
-						first = false;
 						// for first reading we force initialization
+						// FIXME do it correctly if the robot has already started... not sure it is useful though
 
 						if (indexD_OriEuler) // need to set ori uncertainty before pos uncertainty because of sensor lever arm
 						{
@@ -228,28 +222,21 @@ namespace jafar {
 							ublas::subrange(robotPtr()->pose.P(), 3,7, 3,7) = ublasExtra::prod_JPJt(
 								ublas::subrange(measurement->P(), indexE_OriEuler,indexE_OriEuler+3, indexE_OriEuler,indexE_OriEuler+3), Q_exp);
 
+							// update tmp variables depending on q
+							Tr = quaternion::rotate(q,T);
+
 							std::cout << "AbsLoc sets initial orientation q = " << ublas::subrange(robotPtr()->pose.x(), 3, 7) <<
 								" e = " <<  quaternion::q2e(ublas::subrange(robotPtr()->pose.x(), 3, 7)) << std::endl;
-
 						}
 
 						if (indexD_Pos)
 						{
-							if (absolute)
-							{
-								robotPtr()->origin_sensors = jblas::zero_vec(3);
-								ublas::subrange(robotPtr()->pose.x(), 0,3) = ublas::subrange(measurement->x(), indexE_Pos,indexE_Pos+3) - Tr;
-								ublas::subrange(robotPtr()->pose.P(), 0,3, 0,3) = ublas::subrange(measurement->P(), indexE_Pos,indexE_Pos+3, indexE_Pos,indexE_Pos+3) +
-									ublasExtra::prod_JPJt(ublas::subrange(robotPtr()->pose.P(), 3,7, 3,7), EXP_q);
-							} else
-							{
-								robotPtr()->origin_sensors = ublas::subrange(measurement->x(), indexE_Pos,indexE_Pos+3) - Tr;
-								ublas::subrange(robotPtr()->pose.x(), 0, 3) = jblas::zero_vec(3);
-								ublas::subrange(robotPtr()->pose.P(), 0,3, 0,3) = ublas::subrange(measurement->P(), indexE_Pos,indexE_Pos+3, indexE_Pos,indexE_Pos+3) +
-									ublasExtra::prod_JPJt(ublas::subrange(robotPtr()->pose.P(), 3,7, 3,7), EXP_q);
-							}
+							robotPtr()->origin = ublas::subrange(measurement->x(), indexE_Pos,indexE_Pos+3) - Tr - ublas::subrange(robotPtr()->state.x(),0,3);
+							ublas::subrange(robotPtr()->pose.x(), 0, 3) = jblas::zero_vec(3);
+							ublas::subrange(robotPtr()->pose.P(), 0,3, 0,3) = ublas::subrange(measurement->P(), indexE_Pos,indexE_Pos+3, indexE_Pos,indexE_Pos+3) +
+								ublasExtra::prod_JPJt(ublas::subrange(robotPtr()->pose.P(), 3,7, 3,7), EXP_q);
 
-							std::cout << "AbsLoc sets robot origin " << robotPtr()->origin_sensors <<
+							std::cout << "AbsLoc sets robot origin " << robotPtr()->origin <<
 								" ; initial position " << ublas::subrange(robotPtr()->pose.x(), 0,3) <<
 								" ; initial position var " << ublas::subrange(robotPtr()->pose.P(), 0,3, 0,3) << std::endl;
 						}

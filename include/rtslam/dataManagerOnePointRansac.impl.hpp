@@ -503,7 +503,7 @@ namespace jafar {
 				if (featMan->getRoi(roi)) {
 					// FIXME if we already have searched some part of this roi without finding anything, we should not search again
 					// this should be done in featMan, as long as no renew has been done, it remembers the getRoi, and detects when it is not followed by a addObs
-					
+
 					boost::shared_ptr<FeatureSpec> featPtr;
 					if (detector->detect(rawData, roi, featPtr))
 					{

@@ -51,15 +51,15 @@ namespace jafar {
 			XNEW_x(_size_state, _size_state),
 			XNEW_pert(_size_state, _size_pert),
 			Q(_size_state, _size_state),
-			origin_sensors(3), origin_export(3), robot_pose(6),
+			robot_pose(7), isOriginInit(false), origin(3),
 			extrapol_up_to_date(false)
 		{
 			constantPerturbation = false;
 			category = ROBOT;
 			self_time = -1.;
 			Q.clear();
-			origin_sensors.clear();
-			origin_export.clear();
+			origin.clear();
+			pose.x(quaternion::originFrame());
 			robot_pose.clear();
 		}
 
@@ -71,55 +71,150 @@ namespace jafar {
 			XNEW_x(_size_state, _size_state),
 			XNEW_pert(_size_state, _size_pert),
 			Q(_size_state, _size_state),
-			origin_sensors(3), origin_export(3), robot_pose(6),
+			robot_pose(7), isOriginInit(false), origin(3),
 			extrapol_up_to_date(false)
 		{
 			constantPerturbation = true;
 			category = ROBOT;
 			self_time = -1.;
-			origin_sensors.clear();
-			origin_export.clear();
+			origin.clear();
+			pose.x(quaternion::originFrame());
 			robot_pose.clear();
 		}
 
-		void RobotAbstract::setPoseDegStd(double x, double y, double z, double rollDeg,
-		    double pitchDeg, double yawDeg, double xStd, double yStd, double zStd,
-		    double rollDegStd, double pitchDegStd, double yawDegStd)
+
+		void RobotAbstract::setPoseStd(
+			double x, double y, double z,
+			double roll, double pitch, double yaw,
+			double xStd, double yStd, double zStd,
+			double rollStd, double pitchStd, double yawStd,
+			bool degrees)
 		{
-			setPoseStd(x,y,z, jmath::degToRad(rollDeg), jmath::degToRad(pitchDeg), jmath::degToRad(yawDeg),
-			           xStd, yStd, zStd, jmath::degToRad(rollDegStd), jmath::degToRad(pitchDegStd), jmath::degToRad(yawDegStd));
+			setPositionStd(x,y,z, xStd,yStd,zStd);
+			setOrientationStd(roll,pitch,yaw, rollStd,pitchStd,yawStd, degrees);
 		}
 
-		void RobotAbstract::setPoseStd(double x, double y, double z, double roll,
-		    double pitch, double yaw, double xStd, double yStd, double zStd,
-		    double rollStd, double pitchStd, double yawStd)
+		void RobotAbstract::setPositionStd(
+			double x, double y, double z,
+			double xStd, double yStd, double zStd)
 		{
-
 			const double pos_[3] = { x, y, z };
-			const double euler_[3] = { roll, pitch, yaw };
+			const double posStd_[3] = { xStd, yStd, zStd };
+
+			ublas::subrange(pose.x(), 0, 3) = createVector<3> (pos_);
+			subrange(pose.P(), 0,3, 0,3) = createSymMat<3>(posStd_);
+		}
+
+		void RobotAbstract::setOrientationStd(
+			double roll, double pitch, double yaw,
+			double rollStd, double pitchStd, double yawStd,
+			bool degrees)
+		{
+			double euler_[3] = { roll, pitch, yaw };
+			double eulerStd_[3] = { rollStd, pitchStd, yawStd };
+			if (degrees) for(int i = 0; i < 3; ++i) { euler_[i] = jmath::degToRad(euler_[i]); eulerStd_[i] = jmath::degToRad(eulerStd_[i]); }
 
 			// convert euler pose to quat pose
-			ublas::subrange(pose.x(), 0, 3) = createVector<3> (pos_);
-
 			vec3 euler = createVector<3> (euler_);
 			ublas::subrange(pose.x(), 3, 7) = quaternion::e2q(euler);
 
 			// convert euler uncertainty to quaternion uncertainty
-			const double posStd_[3] = { xStd, yStd, zStd };
-			const double eulerStd_[3] = { rollStd, pitchStd, yawStd };
-
 			vec3 eulerStd = createVector<3> (eulerStd_);
 			Gaussian E(3);	E.std(eulerStd);
 			vec4 q;
 			mat Q_e(4, 3);
-
 			quaternion::e2q(euler, q, Q_e);
-
-			// write pose
-			subrange(pose.P(), 0,3, 0,3) = createSymMat<3>(posStd_);
-			subrange(pose.P(), 3,7, 3,7) = prod(Q_e, prod<mat>(E.P(), trans(Q_e)));
+			subrange(pose.P(), 3,7, 3,7) = prod_JPJt(E.P(), Q_e); //prod(Q_e, prod<mat>(E.P(), trans(Q_e)));
 		}
-		
+
+		void RobotAbstract::setRobotPose(jblas::vec6 const & pose_euler, bool degrees)
+		{
+			jblas::vec pose_euler_rad = pose_euler;
+			if (degrees) for(int i = 3; i < 6; ++i) pose_euler_rad(i) = jmath::degToRad(pose_euler_rad(i));
+			robot_pose = quaternion::e2q_frame(pose_euler_rad);
+		}
+
+
+		void RobotAbstract::setInitialPose(
+			double x, double y, double z,
+			double roll, double pitch, double yaw,
+			double xStd, double yStd, double zStd,
+			double rollStd, double pitchStd, double yawStd,
+			bool degrees)
+		{
+			// mean
+			double pose_euler_[6] = {x,y,z,roll,pitch,yaw};
+			if (degrees) for(int i = 3; i < 6; ++i) pose_euler_[i] = jmath::degToRad(pose_euler_[i]);
+			jblas::vec6 pose_euler = createVector<6>(pose_euler_);
+			jblas::vec7 pose_quat = quaternion::e2q_frame(pose_euler);
+
+			jblas::vec7 irobot_pose = quaternion::invertFrame(robot_pose);
+			jblas::vec7 origin_pose = quaternion::composeFrames(pose_quat, irobot_pose);
+
+			origin = subrange(origin_pose, 0,3);
+			ublas::subrange(pose.x(), 3,7) = ublas::subrange(origin_pose, 3,7);
+			isOriginInit = true;
+
+			// cov
+			double poseStd_euler_[6] = {xStd,yStd,zStd,rollStd,pitchStd,yawStd};
+			if (degrees) for(int i = 3; i < 6; ++i) poseStd_euler_[i] = jmath::degToRad(poseStd_euler_[i]);
+			jblas::vec6 poseStd_euler = createVector<6>(poseStd_euler_);
+			Gaussian Pose_euler(6);	Pose_euler.std(poseStd_euler);
+
+			mat Q_e(4, 3);
+			quaternion::e2q_by_de(ublas::subrange(pose_euler, 3,6), Q_e);
+			mat FQ_fe(7,6); FQ_fe.clear();
+			ublas::subrange(FQ_fe,0,3,0,3) = identity_mat(3);
+			ublas::subrange(FQ_fe, 3,7,3,6) = Q_e;
+
+			jblas::mat O_p(7,7);
+			quaternion::composeFrames_by_dglobal(pose_quat, irobot_pose, O_p);
+
+			mat O_fe = ublas::prod(O_p, FQ_fe);
+			subrange(pose.P(), 0,7, 0,7) = prod_JPJt(Pose_euler.P(), O_fe);
+
+std::cout << "setInitialPose " << pose_euler << " std " << poseStd_euler << " : origin " << origin << " pose " << pose.x() << " cov " << pose.P() << std::endl;
+		}
+
+
+		void RobotAbstract::setInitialOrientation(
+			double roll, double pitch, double yaw,
+			double rollStd, double pitchStd, double yawStd,
+			bool degrees)
+		{
+			// mean
+			double ori_euler_[3] = {roll,pitch,yaw};
+			if (degrees) for(int i = 0; i < 3; ++i) ori_euler_[i] = jmath::degToRad(ori_euler_[i]);
+			jblas::vec3 ori_euler = createVector<3>(ori_euler_);
+			jblas::vec4 ori_quat = quaternion::e2q(ori_euler);
+
+			jblas::vec4 irobot_ori = quaternion::q2qc(ublas::subrange(robot_pose, 3, 7));
+			ublas::subrange(pose.x(), 3,7) = quaternion::qProd(ori_quat, irobot_ori);
+
+			// cov
+			double oriStd_euler_[3] = {rollStd,pitchStd,yawStd};
+			if (degrees) for(int i = 0; i < 3; ++i) oriStd_euler_[i] = jmath::degToRad(oriStd_euler_[i]);
+			jblas::vec3 oriStd_euler = createVector<3>(oriStd_euler_);
+			Gaussian Ori_euler(3);	Ori_euler.std(oriStd_euler);
+
+			mat Q_e(4, 3);
+			quaternion::e2q_by_de(ori_euler, Q_e);
+
+			jblas::mat O_p(4,4);
+			quaternion::qProd_by_dq1(ori_quat, O_p);
+
+			mat O_e = ublas::prod(O_p, Q_e);
+			subrange(pose.P(), 3,7, 3,7) = prod_JPJt(Ori_euler.P(), O_e);
+
+std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler << " pose " << pose.x() << " cov " << pose.P() << std::endl;
+		}
+
+
+		void RobotAbstract::getCurrentPose(double time, jblas::vec & x, jblas::vec & P)
+		{
+			move_extrapolate(time);
+			slamPoseToRobotPose(state_extrapol_x, state_extrapol_P, x, P);
+		}
 		
 		void RobotAbstract::computeStatePerturbation() {
 			Q = jmath::ublasExtra::prod_JPJt(perturbation.P(), XNEW_pert);
@@ -284,19 +379,6 @@ namespace jafar {
 			self_time = time;
 		}
 
-		void RobotAbstract::getPos(double time, jblas::vec & x, jblas::vec & P)
-		{
-			move_extrapolate(time);
-
-			jblas::vec euler_x(3);
-			jblas::sym_mat euler_P(3,3);
-			quaternion::q2e(ublas::subrange(state_extrapol_x, 3, 7), ublas::subrange(state_extrapol_P, 3,7, 3,7), euler_x, euler_P);
-			ublas::subrange(x,0,3) = ublas::subrange(state_extrapol_x,0,3) + origin_sensors - origin_export;
-			ublas::subrange(x,3,6) = euler_x;
-			for(int i = 0; i < 3; ++i) P(i) = euler_P(i,i);
-			for(int i = 0; i < 3; ++i) P(3+i) = euler_P(i,i);
-
-		}
 
 
 		void RobotAbstract::writeLogHeader(kernel::DataLogger& log) const

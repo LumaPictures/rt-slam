@@ -306,10 +306,10 @@ class ConfigSetup: public kernel::KeyValueFileSaveLoad
 {
  public:
 	/// SENSOR
-	jblas::vec6 SENSOR_POSE_CONSTVEL; /// camera pose in constant velocity (x,y,z,roll,pitch,yaw) (m,deg)
-	jblas::vec6 SENSOR_POSE_INERTIAL; /// camera pose in inertial (x,y,z,roll,pitch,yaw) (m,deg)
-	jblas::vec6 GPS_POSE; /// GPS pose (x,y,z,roll,pitch,yaw) (m,deg)
-	jblas::vec6 ROBOT_POSE; /// the transformation between the slam robot (the main sensor, camera or imu) and the real robot = pose of the real robot in the slam robot frame, just like the other sensors
+	jblas::vec6 SENSOR_POSE_CONSTVEL; /// camera pose in SLAM frame for constant velocity (x,y,z,roll,pitch,yaw) (m,deg)
+	jblas::vec6 SENSOR_POSE_INERTIAL; /// camera pose in SLAM frame (IMU frame) for inertial (x,y,z,roll,pitch,yaw) (m,deg)
+	jblas::vec6 GPS_POSE; /// GPS pose in SLAM frame (IMU frame in inertial) (x,y,z,roll,pitch,yaw) (m,deg)
+	jblas::vec6 ROBOT_POSE; /// real robot pose in SLAM frame (IMU frame in inertial) (for init and export)
 
 	unsigned CAMERA_TYPE;      /// camera type (0 = firewire, 1 = firewire format7, 2 = USB, 3 = UEYE)
 	unsigned CAMERA_FORMAT;    /// camera image format (0: GRAY8, 10: RGB24, 20: YUV411, 21: YUV422_UYVY, 22: YUV422_YUYV, 23: YUV422_YYUV, 24: YVU422_VYUY, 25: YVU422_YVYU, 26: YUV444, 30: BAYER_BGGR, 31: BAYER_GRBG, 32: BAYER_RGGB, 33: BAYER_GBRG)
@@ -346,7 +346,7 @@ class ConfigSetup: public kernel::KeyValueFileSaveLoad
 	double PERT_RANWALKACC;  /// IMU a_bias random walk (m/s2 per sqrt(s))
 	double PERT_RANWALKGYRO; /// IMU w_bias random walk (rad/s per sqrt(s))
 
-	double UNCERT_HEADING;   /// initial heading uncertainty
+	double UNCERT_HEADING;   /// initial heading uncertainty of the real robot
 	double UNCERT_ATTITUDE;   /// initial attitude angles uncertainty
 	
 	double IMU_TIMESTAMP_CORRECTION; /// correction to add to the IMU timestamp for synchronization (s)
@@ -900,10 +900,9 @@ void demo_slam_init()
 	}
 
 	robPtr1->linkToParentMap(mapPtr);
-	robPtr1->pose.x(quaternion::originFrame());
-	robPtr1->setPoseStd(0,0,0, 0,0,floatOpts[fHeading], 
-	                    0,0,0, configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_HEADING);
-	robPtr1->robot_pose = configSetup.ROBOT_POSE;
+	robPtr1->setRobotPose(configSetup.ROBOT_POSE, true);
+	robPtr1->setOrientationStd(0,0,floatOpts[fHeading],
+		configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_HEADING);
 	if (dataLogger) dataLogger->addLoggable(*robPtr1.get());
 
 	if (intOpts[iSimu] != 0)
@@ -1168,7 +1167,7 @@ void demo_slam_init()
 
 	if (intOpts[iGps])
 	{
-		absloc_ptr_t senPtr13(new SensorAbsloc(robPtr1, MapObject::UNFILTERED, false));
+		absloc_ptr_t senPtr13(new SensorAbsloc(robPtr1, MapObject::UNFILTERED));
 		senPtr13->setId();
 		senPtr13->linkToParentRobot(robPtr1);
 		hardware::hardware_sensorprop_ptr_t hardGps;
@@ -1371,7 +1370,7 @@ int n_innovation = 0;
 				jblas::sym_mat euler_P(3,3);
 				quaternion::q2e(ublas::subrange(robotPtr->state.x(), 3, 7), ublas::subrange(robotPtr->state.P(), 3,7, 3,7), euler_x, euler_P);
 				jblas::vec stateX(6);
-				ublas::subrange(stateX,0,3) = ublas::subrange(robotPtr->state.x(),0,3)+robotPtr->origin_sensors-robotPtr->origin_export;
+				ublas::subrange(stateX,0,3) = ublas::subrange(robotPtr->state.x(),0,3)+robotPtr->origin;
 				ublas::subrange(stateX,3,6) = euler_x;
 				jblas::vec stateP(6);
 				for(int i = 0; i < 3; ++i) stateP(i) = robotPtr->state.P(i,i);

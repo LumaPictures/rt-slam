@@ -23,6 +23,7 @@ namespace jafar {
 
 		/**
 		 * Constant velocity model robot class.
+		 * The SLAM origin is the camera origin.
 		 *
 		 * \author jsola
 		 *
