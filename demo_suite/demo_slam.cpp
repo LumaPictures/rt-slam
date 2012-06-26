@@ -770,9 +770,12 @@ void demo_slam_init()
 			for(int i = 0, z = -1; z <= 1; ++z) for(int y = -3; y <= 7; ++y) for(int x = -6; x <= 6; ++x, ++i)
 				{ points[i][0] = x*1.0+100; points[i][1] = y*10.0; points[i][2] = z*10.0; }
 			break;
-		}
+			}
 		
-			default: npoints = 0;
+		default: {
+			npoints = 0;
+			break;
+			}
 		#endif
 		}
 		
@@ -1169,12 +1172,21 @@ void demo_slam_init()
 		switch (intOpts[iGps])
 		{
 			case 1:
+			{
 				hardGps.reset(new hardware::HardwareSensorGpsGenom(rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
+				break;
+			}
 			case 2:
+			{
 				hardGps.reset(new hardware::HardwareSensorGpsGenom(rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
+				break;
+			}
 			case 3:
+			{
 				hardGps.reset(new hardware::HardwareSensorMocap(rawdata_condition, 200, mode, strOpts[sDataPath]));
 				init = false;
+				break;
+			}
 		}
 
 		hardGps->setSyncConfig(configSetup.GPS_TIMESTAMP_CORRECTION);
