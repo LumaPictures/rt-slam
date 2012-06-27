@@ -389,7 +389,7 @@ namespace jafar {
 
 		bool MapManagerGlobal::isExclusive(observation_ptr_t obsPtr)
 		{
-if (!obsPtr->updatable) std::cout << "obs " << obsPtr->id() << " is not exclusive" << std::endl;
+//if (!obsPtr->updatable) std::cout << "obs " << obsPtr->id() << " is not exclusive" << std::endl;
 			return obsPtr->updatable;
 		}
 
