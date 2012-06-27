@@ -271,6 +271,7 @@ namespace jafar {
 						}
 
 				} events;
+				bool updatable; ///< last time it was measured, was it updated
 				
 				/**
 				 * Tasks
@@ -427,7 +428,7 @@ namespace jafar {
 
 				virtual double getMatchScore() = 0;
 
-				void update() ;
+				void update(bool correct_P = true) ;
 #if 0
 				virtual bool voteForKillingLandmark();
 #endif

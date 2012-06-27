@@ -35,21 +35,44 @@
  */
 #define PROJECT_MEAN_VISIBILITY 1
 
+#if RELEVANCE_TEST && RELEVANCE_TEST_P
+	#error "RELEVANCE_TEST and RELEVANCE_TEST_P are incompatible!"
+#endif
+
 namespace jafar {
 	namespace rtslam {
 
 		template<class RawSpec,class SensorSpec, class FeatureSpec, class RoiSpec, class FeatureManagerSpec, class DetectorSpec, class MatcherSpec>
 		void DataManagerOnePointRansac<RawSpec,SensorSpec,FeatureSpec,RoiSpec,FeatureManagerSpec,DetectorSpec,MatcherSpec>::
-		processKnown(raw_ptr_t data)
+		processKnown(raw_ptr_t data, double date_limit)
 		{
+			const unsigned min_as_update = 2;
+			int n_updates_ransac = algorithmParams.n_updates_ransac;
+			// adapt number of ransac updates for this frame
+			double date_begin = kernel::Clock::getTime();
+			double time_available = date_limit - date_begin;
+			if (date_limit > 0)
+			{
+				if (prev_average_as_update_time < prev_average_ransac_update_time) prev_average_ransac_update_time = prev_average_as_update_time; // to prevent long ransac update to stick
+				if (prev_average_ransac_update_time > 0 && prev_average_as_update_time > 0)
+					n_updates_ransac = (time_available - min_as_update*prev_average_as_update_time) / prev_average_ransac_update_time;
+				else if (prev_average_ransac_update_time > 0) // if no estimate for as time, use ransac time
+					n_updates_ransac = (time_available / prev_average_ransac_update_time) - min_as_update;
+				if (n_updates_ransac <= 0) n_updates_ransac = (time_available / prev_average_ransac_update_time);
+				if (n_updates_ransac <= 0) n_updates_ransac = 1; // do at least one update!
+				if ((unsigned)n_updates_ransac > algorithmParams.n_updates_ransac) n_updates_ransac = algorithmParams.n_updates_ransac;
+			}
+			double average_ransac_update_time = kernel::Clock::getTime();
+
 			boost::shared_ptr<RawSpec> rawData = SPTR_CAST<RawSpec>(data);
 			//###
 			//### Init, collect visible observations
 			//### 
 			map_ptr_t mapPtr = sensorPtr()->robotPtr()->mapPtr();
-			unsigned numObs = 0;
+			unsigned numObs = 0, numObsRansac = 0;
 
 			projectAndCollectVisibleObs();
+			if (n_updates_ransac <= 0) return; // here to build visibleList and clearFlags in case next manage or detect steps are made afterwards
 
 			unsigned n_tries = algorithmParams.n_tries;
 			if (obsVisibleList.size() < n_tries) n_tries = obsVisibleList.size();
@@ -98,12 +121,12 @@ namespace jafar {
 						{
 							// try to match with low innovation
 							jblas::sym_mat P = jblas::identity_mat(obsCurrentPtr->expectation.size())*jmath::sqr(matcher->params.lowInnov);
-                     RoiSpec roi;
-                     if(obsCurrentPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
-                     {
-                        roi = RoiSpec(exp, P, 1.0);
-                        obsCurrentPtr->searchSize = roi.count();
-                     }
+							RoiSpec roi;
+							if(obsCurrentPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
+							{
+								roi = RoiSpec(exp, P, 2.0);
+								obsCurrentPtr->searchSize = roi.count();
+							}
 							else // Segment
 							{
 								// Rough approximation, this won't be used by Dseg Matcher, only by the simulator
@@ -126,17 +149,27 @@ namespace jafar {
 								roi = RoiSpec(rect);
 							}
 							obsCurrentPtr->events.measured = true;
-							
-							matcher->match(rawData, obsCurrentPtr->predictedAppearance, roi, obsCurrentPtr->measurement, obsCurrentPtr->observedAppearance);
-							if (obsCurrentPtr->getMatchScore() > matcher->params.threshold)
+
+							Measurement measurement(obsCurrentPtr->measurement.size());
+							matcher->match(rawData, obsCurrentPtr->predictedAppearance, roi, measurement, obsCurrentPtr->observedAppearance);
+
+							bool matched = false;
+							if (obsCurrentPtr->events.matched)
+								{ if (measurement.matchScore >= obsCurrentPtr->getMatchScore() - 1e-6) matched = true; } else
+								{ if (measurement.matchScore >= matcher->params.threshold) matched = true; }
+
+							if (matched)
 							{
 								#if PROJECT_MEAN_VISIBILITY
 								obsCurrentPtr->project();
 								#endif
+								// FIXME when we update measurement, we are not sure it is still inlier for previous sets...
+								Measurement measurement_old = obsCurrentPtr->measurement;
+								obsCurrentPtr->measurement = measurement;
 								if (isExpectedInnovationInlier(obsCurrentPtr, matcher->params.mahalanobisTh))
-								{
 									obsCurrentPtr->events.matched = true;
-								}
+								else
+									if (obsCurrentPtr->events.matched) obsCurrentPtr->measurement = measurement_old; // restore
 							}
 							
 							inlier = obsCurrentPtr->events.matched && 
@@ -171,7 +204,7 @@ namespace jafar {
 
 				// if there are too many updates to do bufferized, randomly move out some of them
 				// to pending, they may be processed in active search if really necessary
-				while (best_set->size() > 1 && best_set->size() > algorithmParams.n_updates_ransac)
+				while (best_set->size() > 1 && best_set->size() > (unsigned)n_updates_ransac)
 				{
 					int n = (rtslam::rand() % (best_set->size() - 1)) + 1; // keep the first one which is the base obs
 					best_set->pendingObs.push_back(best_set->inlierObs[n]);
@@ -182,17 +215,17 @@ namespace jafar {
 				{
 					// 2. for each obs in inliers
 					JFR_DEBUG_BEGIN(); JFR_DEBUG_SEND("Updating with Ransac:");
-					#if RELEVANCE_TEST
+					#if RELEVANCE_TEST || RELEVANCE_TEST_P
 					double innovation_relevance = 0.0;
 					#endif
 					for(ObsList::iterator obsIter = best_set->inlierObs.begin(); obsIter != best_set->inlierObs.end(); ++obsIter)
 					{
 						observation_ptr_t obsPtr = *obsIter;
-						
+
 						// 2a. add obs to buffer for EKF update
 						#if BUFFERED_UPDATE
 						mapPtr->filterPtr->stackCorrection(obsPtr->innovation, obsPtr->INN_rsl, obsPtr->ia_rsl);
-						#if RELEVANCE_TEST
+						#if RELEVANCE_TEST || RELEVANCE_TEST_P
 						innovation_relevance += obsPtr->computeRelevance();
 						#endif
 						#else
@@ -202,19 +235,31 @@ namespace jafar {
 						if (obsPtr->computeRelevance() > jmath::sqr(matcher->params.relevanceTh))
 						#endif
 						{
+							#if RELEVANCE_TEST_P
+							obsPtr->update(obsPtr->computeRelevance() > jmath::sqr(matcher->params.relevanceTh));
+							#else
 							obsPtr->update();
+							#endif
 							obsPtr->events.updated = true;
+
 						}
 						#endif
 					}
 					bool do_update = false;
 					#if BUFFERED_UPDATE
 					// 3. perform buffered update
+					#if RELEVANCE_TEST || RELEVANCE_TEST_P
+					innovation_relevance /= best_set->inlierObs.size();
+					#endif
 					#if RELEVANCE_TEST
 					if (innovation_relevance > jmath::sqr(matcher->params.relevanceTh))
 					#endif
 					{
+						#if RELEVANCE_TEST_P
+						mapPtr->filterPtr->correctAllStacked(mapPtr->ia_used_states(), innovation_relevance > jmath::sqr(matcher->params.relevanceTh));
+						#else
 						mapPtr->filterPtr->correctAllStacked(mapPtr->ia_used_states());
+						#endif
 						do_update = true;
 					}
 					#if RELEVANCE_TEST
@@ -228,7 +273,7 @@ namespace jafar {
 						{
 							// Add to tesselation grid for active search
 							//featMan->addObs(obsPtr->expectation.x());
-							numObs++;
+							numObs++; numObsRansac++;
 							(*obsIter)->events.updated = true;
 							JFR_DEBUG_SEND(" " << (*obsIter)->id());
 						} else
@@ -240,7 +285,13 @@ namespace jafar {
 					JFR_DEBUG_END();
 				}
 			}
-			
+
+			double date_now = kernel::Clock::getTime(), date_prev, time_update;
+			average_ransac_update_time = date_now - average_ransac_update_time;
+			if (numObsRansac > 0) prev_average_ransac_update_time = average_ransac_update_time / numObsRansac;
+			double average_as_update_time = date_now;
+			bool stop_no_time = false;
+
 			//###
 			//### Process some other observations with Active Search
 			//### 
@@ -248,7 +299,7 @@ namespace jafar {
 			// FIXME don't search again landmarks that failed as base
 			
 			JFR_DEBUG_BEGIN(); JFR_DEBUG_SEND("Updating with ActiveSearch:");
-			for (unsigned i = 0; i < algorithmParams.n_recomp_gains; ++i)
+			for (unsigned i = 0; i < algorithmParams.n_recomp_gains && !stop_no_time; ++i)
 			{
 				// 4. for each obs in pending: retake algorithm from active search
 				for(ObsList::iterator obsIter = activeSearchList.begin(); obsIter != activeSearchList.end(); ++obsIter)
@@ -292,9 +343,10 @@ namespace jafar {
 
 				// loop only the N_UPDATES most interesting obs, from largest info gain to smallest
 				for (ObservationListSorted::reverse_iterator obsIter = obsListSorted.rbegin();
-					obsIter != obsListSorted.rend(); ++obsIter)
+					obsIter != obsListSorted.rend() && !stop_no_time; ++obsIter)
 				{
 					if (i != algorithmParams.n_recomp_gains-1 && obsIter != obsListSorted.rbegin()) break;
+					date_prev = kernel::Clock::getTime();
 					observation_ptr_t obsPtr = *(obsIter->second);
 
 					// 1a. re-project to get up-to-date means and Jacobians
@@ -310,13 +362,13 @@ namespace jafar {
 								obsPtr->events.measured = true;
 
 								// 1c. predict search area and appearance
-                        RoiSpec roi;
-                        if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
-                        {
-                           roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
-                           obsPtr->searchSize = roi.count();
-                           if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
-                        }
+								RoiSpec roi;
+								if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
+								{
+									 roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
+									 obsPtr->searchSize = roi.count();
+									 if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
+								}
 								else // Segment
 								{
 									// Rough approximation, this won't be used by Dseg Matcher, only by the simulator
@@ -366,13 +418,27 @@ namespace jafar {
 										numObs++;
 										JFR_DEBUG_SEND(" " << obsPtr->id());
 										//								kernel::Chrono update_chrono;
+										#if RELEVANCE_TEST_P
+										obsPtr->update(obsPtr->computeRelevance() > jmath::sqr(matcher->params.relevanceTh));
+										#else
 										obsPtr->update();
+										#endif
 										//								total_update_time += update_chrono.elapsedMicrosecond();
 									} // obsPtr->compatibilityTest(M_TH)
 								} // obsPtr->getScoreMatchInPercent()>SC_TH
 
 							} // number of observations
 					} // obsPtr->isVisible()
+
+
+					// check if we need to stop because we don't have enough time
+					if (obsPtr->events.updated && date_limit > 0)
+					{
+						date_now = kernel::Clock::getTime();
+						time_update = date_now - date_prev;
+						if (date_now+time_update > date_limit) { stop_no_time = true; break; }
+					}
+
 				} // foreach observation
 
 				if (i+1 != algorithmParams.n_recomp_gains && obsListSorted.rbegin() != obsListSorted.rend())
@@ -382,6 +448,9 @@ namespace jafar {
 			JFR_DEBUG_END();
 
 			if (pending_buffered_update) mapPtr->filterPtr->clearStack();
+
+			average_as_update_time = kernel::Clock::getTime() - average_as_update_time;
+			if (numObs > numObsRansac) prev_average_as_update_time = average_as_update_time / (numObs-numObsRansac);
 			
 			//###
 			//### Update obs counters and some other stuff
@@ -399,6 +468,7 @@ namespace jafar {
 				obs->updateVisibilityMap();
 				#endif
 				
+				if (obs->events.measured) obs->updatable = obs->events.updated;
 				if (not (obs->events.measured && !obs->events.matched && !obs->isDescriptorValid()))
 				{
 					if (obs->events.measured) obs->counters.nSearch++;
@@ -450,7 +520,8 @@ namespace jafar {
 						obsPtr->events.measured = true;
 						obsPtr->events.matched = false;
 						obsPtr->events.updated = true;
-                  obsPtr->measurement = featPtr->measurement;
+						obsPtr->updatable = true;
+						obsPtr->measurement = featPtr->measurement;
 
 						// 2c. compute and fill stochastic data for the landmark
 						obsPtr->backProject();
@@ -683,14 +754,13 @@ namespace jafar {
 			#endif
 
 			if (obsPtr->predictAppearance())
-         {
-
-            RoiSpec roi;
-            if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and having a size4 expectation the following roi computation fails, hence the test  - TODO clean up all this, is should not mess with One point ransac
-            {
-               roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
-               obsPtr->searchSize = roi.count();
-               if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
+			{
+				RoiSpec roi;
+				if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and having a size4 expectation the following roi computation fails, hence the test  - TODO clean up all this, is should not mess with One point ransac
+				{
+					roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
+					obsPtr->searchSize = roi.count();
+					if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
 				}
 				else // Segment
 				{

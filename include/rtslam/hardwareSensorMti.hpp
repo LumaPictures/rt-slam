@@ -1,5 +1,5 @@
 /**
- * \file hardwareEstimatorMti.hpp
+ * \file hardwareSensorMti.hpp
  *
  * Header file for hardware robots
  *
@@ -9,8 +9,8 @@
  * \ingroup rtslam
  */
 
-#ifndef HARDWARE_ESTIMATOR_MTI_HPP_
-#define HARDWARE_ESTIMATOR_MTI_HPP_
+#ifndef HARDWARE_SENSOR_MTI_HPP_
+#define HARDWARE_SENSOR_MTI_HPP_
 
 #include "jafarConfig.h"
 
@@ -25,7 +25,7 @@
 #include "jmath/jblas.hpp"
 #include "jmath/indirectArray.hpp"
 
-#include "rtslam/hardwareEstimatorAbstract.hpp"
+#include "rtslam/hardwareSensorAbstract.hpp"
 
 
 
@@ -33,49 +33,37 @@ namespace jafar {
 namespace rtslam {
 namespace hardware {
 
-	class HardwareEstimatorMti: public HardwareEstimatorAbstract
+	class HardwareSensorMti: public HardwareSensorProprioAbstract
 	{
 		private:
 #ifdef HAVE_MTI
 			MTI *mti;
 #endif
 			
-			jblas::mat buffer;
-			int bufferSize;
-			
-			boost::mutex mutex_data;
-			boost::condition_variable cond_data;
-			boost::condition_variable cond_offline; // to be sure we don't need data before they are read
-			int write_position; // next position where to write, oldest available reading
-			int read_position; // oldest position not released (being read or not read at all)
-			
-			double timestamps_correction;
-//			bool tighly_synchronized;
-//			double tight_offset;
-			
 			int mode;
 			std::string dump_path;
 			double realFreq;
+			double last_timestamp;
 
 			boost::thread *preloadTask_thread;
 			void preloadTask(void);
 		
 		public:
 			
-			HardwareEstimatorMti(std::string device, double trigger_mode, double trigger_freq, double trigger_shutter, int bufferSize_, int mode = 0, std::string dump_path = ".");
-			~HardwareEstimatorMti();
+			HardwareSensorMti(kernel::VariableCondition<int> *condition, std::string device, double trigger_mode,
+				double trigger_freq, double trigger_shutter, int bufferSize_, int mode = 0, std::string dump_path = ".");
+			~HardwareSensorMti();
 			virtual void start();
+			virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
 			void setSyncConfig(double timestamps_correction = 0.0/*, bool tightly_synchronized = false, double tight_offset*/);
 			
 			/**
 			 * @return data with 10 columns: time, accelero (3), gyro (3), magneto (3)
 			 */
-			jblas::mat_indirect acquireReadings(double t1, double t2);
-			void releaseReadings() { }
 			jblas::ind_array instantValues() { return jmath::ublasExtra::ia_set(1,10); }
 			jblas::ind_array incrementValues() { return jmath::ublasExtra::ia_set(1,1); }
 
-			double getFreq() { return realFreq; }
+			double getFreq() { return realFreq; } // trigger freq
 	};
 
 }}}

@@ -29,7 +29,7 @@
 #include "rtslam/mapObject.hpp"
 #include "rtslam/parents.hpp"
 
-#include "rtslam/hardwareEstimatorAbstract.hpp"
+#include "rtslam/hardwareSensorAbstract.hpp"
 
 namespace jafar {
 	namespace rtslam {
@@ -65,7 +65,7 @@ namespace jafar {
 				// define the type SensorList, and the function sensorList().
 				ENABLE_ACCESS_TO_CHILDREN(SensorAbstract,Sensor,sensor);
 
-				hardware::hardware_estimator_ptr_t hardwareEstimatorPtr;
+				hardware::hardware_sensorprop_ptr_t hardwareEstimatorPtr;
 
 				/**
 				 * Remote constructor from remote map and size of state and control vectors.
@@ -130,6 +130,7 @@ namespace jafar {
 				bool constantPerturbation;
 				kernel::Timestamp self_time; ///< 					Current estimation time
 				double dt_or_dx; ///<           Sampling time or any other relevant increment (e.g. odometry is not time-driven but distance-driven)
+				jblas::mat controls;
 
 				jblas::mat XNEW_x; ///<         Jacobian wrt state
 				jblas::mat XNEW_pert; ///<      Jacobian wrt perturbation
@@ -139,6 +140,12 @@ namespace jafar {
 				jblas::vec origin_export; ///< origin of the exported position in absolute coordinates
 				void setOrigin(jblas::vec3 pos) { origin_export = pos; }
 				jblas::vec robot_pose; ///< the pose of the true robot in the slam robot frame, for exported position
+
+				boost::mutex mutex_extrapol;
+				bool extrapol_up_to_date;
+				double self_time_extrapol, self_time_extrapol_init;
+				jblas::vec state_extrapol_x, state_extrapol_x_init;
+				jblas::sym_mat state_extrapol_P, state_extrapol_P_init;
 
 				virtual size_t mySize() = 0;
 				virtual size_t mySize_control() = 0;
@@ -157,31 +164,9 @@ namespace jafar {
 					perturbation = _pert;
 				}
 
-				void setHardwareEstimator(hardware::hardware_estimator_ptr_t hardwareEstimatorPtr_)
+				void setHardwareEstimator(hardware::hardware_sensorprop_ptr_t hardwareEstimatorPtr_)
 				{
 					hardwareEstimatorPtr = hardwareEstimatorPtr_;
-				}
-
-
-				/**
-				 * Move one step ahead, affect SLAM filter.
-				 * This function updates the full state and covariances matrix of the robot plus the cross-variances with all other map objects.
-				 */
-				void move() {
-					vec x = state.x();
-					vec n = perturbation.x();
-					vec xnew(x.size());
-
-					move_func(x, control, n, dt_or_dx, xnew, XNEW_x, XNEW_pert);
-					state.x() = xnew;
-
-					if (mapPtr()->filterPtr){
-
-						if (!constantPerturbation)
-							computeStatePerturbation();
-
-						mapPtr()->filterPtr->predict(mapPtr()->ia_used_states(), XNEW_x, state.ia(), Q); // P = F*P*F' + Q
-					}
 				}
 
 
@@ -207,6 +192,28 @@ namespace jafar {
 					init_func(x, control, xnew);
 					state.x() = xnew;
 				}
+
+				/**
+				 * Move one step ahead, affect SLAM filter.
+				 * This function updates the full state and covariances matrix of the robot plus the cross-variances with all other map objects.
+				 */
+				void move() {
+					vec x = state.x();
+					vec n = perturbation.x();
+					vec xnew(x.size());
+
+					move_func(x, control, n, dt_or_dx, xnew, XNEW_x, XNEW_pert);
+					state.x() = xnew;
+
+					if (mapPtr()->filterPtr){
+
+						if (!constantPerturbation)
+							computeStatePerturbation();
+
+						mapPtr()->filterPtr->predict(mapPtr()->ia_used_states(), XNEW_x, state.ia(), Q); // P = F*P*F' + Q
+					}
+				}
+
 				/**
 				 * Move one step ahead, affect SLAM filter.
 				 * This function updates the full state and covariances matrix of the robot plus the cross-variances with all other map objects.
@@ -217,10 +224,21 @@ namespace jafar {
 					control = ublas::subrange(_u, 0, control.size());
 					move();
 				}
-				
-				void move(double time);
+
+				void computeControls(double time1, double time2, jblas::mat & controls, bool release);
+				virtual void move(double time);
+				/**
+				 * Move without changing the state, for extrapolation
+				 * Thread safe
+				 */
+				void move_extrapolate();
+				void move_extrapolate(double time);
+				void reinit_extrapolate();
+				/**
+				 * move without moving (without doing slam), just to release the data
+				 */
 				void move_fake(double time);
-				void move(const vec & u_, double time);
+				void getPos(double time, jblas::vec & x, jblas::vec & P);
 
 				/**
 				 * Compute robot process noise \a Q in state space.

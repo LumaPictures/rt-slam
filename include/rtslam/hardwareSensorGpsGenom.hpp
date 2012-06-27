@@ -38,17 +38,18 @@ class HardwareSensorGpsGenom: public HardwareSensorProprioAbstract
 #ifdef HAVE_POSTERLIB
 		POSTER_ID posterId;
 #endif
-		RawVec reading;
 		int mode;
 		std::string dump_path;
 		double last_timestamp;
 		
 	public:
-		HardwareSensorGpsGenom(kernel::VariableCondition<int> &condition, unsigned bufferSize, const std::string machine, int mode = 0, std::string dump_path = ".");
+		HardwareSensorGpsGenom(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode = 0, std::string dump_path = ".");
 		
 		virtual void start();
 		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
 		
+		jblas::ind_array instantValues() { return jmath::ublasExtra::ia_set(1,7); }
+		jblas::ind_array incrementValues() { return jmath::ublasExtra::ia_set(1,1); }
 };
 
 
