@@ -1,7 +1,7 @@
 /**
- * \file hardwareEstimatorInertialAdhocSimulator.hpp
+ * \file hardwareSensorInertialAdhocSimulator.hpp
  *
- * Header file for hardware robots
+ * Header file inertial simulation : WIP
  *
  * \author croussil
  * \date 12/01/2011
@@ -9,8 +9,8 @@
  * \ingroup rtslam
  */
 
-#ifndef HARDWARE_ESTIMATOR_INERTIAL_ADHOC_SIMULATOR_HPP_
-#define HARDWARE_ESTIMATOR_INERTIAL_ADHOC_SIMULATOR_HPP_
+#ifndef HARDWARE_SENSOR_INERTIAL_ADHOC_SIMULATOR_HPP_
+#define HARDWARE_SENSOR_INERTIAL_ADHOC_SIMULATOR_HPP_
 
 #include "jafarConfig.h"
 
@@ -24,15 +24,12 @@ namespace jafar {
 namespace rtslam {
 namespace hardware {
 
-	class HardwareEstimatorInertialAdhocSimulator: public HardwareEstimatorAbstract
+	class HardwareSensorInertialAdhocSimulator: public HardwareSensorProprioAbstract
 	{
 		private:
 			double dt;
 			boost::shared_ptr<simu::AdhocSimulator> simulator;
 			size_t robId;
-			
-			jblas::mat buffer;
-			int bufferSize;
 			
 		private:
 			struct estimator_params_t
@@ -60,9 +57,10 @@ namespace hardware {
 			 * @param simulator
 			 * @param robId
 			 */
-			HardwareEstimatorInertialAdhocSimulator(double freq, int bufferSize_,
+			HardwareSensorInertialAdhocSimulator(kernel::VariableCondition<int> *condition, double freq, int bufferSize_,
 				boost::shared_ptr<simu::AdhocSimulator> simulator, size_t robId):
-				dt(1./freq), simulator(simulator), robId(robId), buffer(bufferSize_, 10), bufferSize(bufferSize_) {}
+				HardwareSensorProprioAbstract(condition, bufferSize_, ctVar),
+				dt(1./freq), simulator(simulator), robId(robId) {}
 
 			void setSyncConfig(double timestamps_correction = 0.0/*, bool tightly_synchronized = false, double tight_offset*/)
 			{
@@ -94,7 +92,7 @@ namespace hardware {
 				x = jblas::scalar_vec(3, 0.0); P = jblas::scalar_vec(3, acc_noisestd*acc_noisestd);
 				params.acc_noise = new MultiDimNormalDistribution(x, P, rtslam::rand());
 			}
-			
+#if 0
 			jblas::mat_indirect acquireReadings(double t1, double t2)
 			{
 				size_t n1 = (int)(t1/dt);
@@ -110,22 +108,22 @@ namespace hardware {
 					ublas::subrange(tmp, 3, 6) = ublas::element_prod(ublas::subrange(tmp, 3, 6), params.gyr_gain) + 
 						params.gyr_bias + params.gyr_noise->get();
 						
-					buffer(i,0) = t + params.timestamps_correction;
-					buffer(i,1) = tmp(0);
-					buffer(i,2) = tmp(1);
-					buffer(i,3) = tmp(2);
-					buffer(i,4) = tmp(3);
-					buffer(i,5) = tmp(4);
-					buffer(i,6) = tmp(5);
-					buffer(i,7) = 0.;
-					buffer(i,8) = 0.;
-					buffer(i,9) = 0.; // TODO magneto
+					buffer(i).data(0) = t + params.timestamps_correction;
+					buffer(i).data(1) = tmp(0);
+					buffer(i).data(2) = tmp(1);
+					buffer(i).data(3) = tmp(2);
+					buffer(i).data(4) = tmp(3);
+					buffer(i).data(5) = tmp(4);
+					buffer(i).data(6) = tmp(5);
+					buffer(i).data(7) = 0.;
+					buffer(i).data(8) = 0.;
+					buffer(i).data(9) = 0.; // TODO magneto
 				}
 				return ublas::project(buffer, 
 					jmath::ublasExtra::ia_set(ublas::range(0,i)),
 					jmath::ublasExtra::ia_set(ublas::range(0,buffer.size2())));
 			}
-			
+#endif
 			void releaseReadings() { }
 			jblas::ind_array instantValues() { return jmath::ublasExtra::ia_set(1,10); }
 			jblas::ind_array incrementValues() { return jmath::ublasExtra::ia_set(1,1); }

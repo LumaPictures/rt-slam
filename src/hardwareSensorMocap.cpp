@@ -41,6 +41,7 @@ namespace hardware {
 			{
 				// TODO read data from sensor and put it in reading
 				reading.arrival = kernel::Clock::getTime();
+				//arrival_delay = reading.arrival - reading.data(0);
 			}
 			
 			int buff_write = getWritePos();
@@ -59,12 +60,13 @@ namespace hardware {
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 	
 	
-	HardwareSensorMocap::HardwareSensorMocap(kernel::VariableCondition<int> &condition, unsigned bufferSize, int mode, std::string dump_path):
-		HardwareSensorProprioAbstract(condition, bufferSize, false), mode(mode), dump_path(dump_path)
+	HardwareSensorMocap::HardwareSensorMocap(kernel::VariableCondition<int> *condition, unsigned bufferSize, int mode, std::string dump_path):
+		HardwareSensorProprioAbstract(condition, bufferSize, ctVar), mode(mode), dump_path(dump_path)
 	{
 		addQuantity(qPos);
 		addQuantity(qOriEuler); // using euler x/y/z because the sensors work with euler and the uncertainty is provided with euler)
-		reading.resize(readingSize());
+		initData();
+
 		// configure
 		if (mode == 0 || mode == 1)
 		{

@@ -66,7 +66,7 @@ namespace hardware {
 			}
 			if (no_more_data) break;
 			incWritePos();
-			condition.setAndNotify(1);
+			if (condition) condition->setAndNotify(1);
 		}
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 
@@ -162,13 +162,13 @@ namespace hardware {
 	}
 
 	
-	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> &condition, cv::Size imgSize, std::string dump_path):
+	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorExteroAbstract(condition, 3), saveTask_cond(0)
 	{
 		init(dump_path, imgSize);
 	}
 
-	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> &condition, int bufferSize):
+	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize):
 		HardwareSensorExteroAbstract(condition, bufferSize), saveTask_cond(0)
 	{}
 

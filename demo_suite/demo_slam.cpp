@@ -21,7 +21,7 @@
  * STATUS: working fine, use it
  * Ransac ensures that we use correct observations for a few first updates,
  * allowing bad observations to be more easily detected by gating
- * You can disable it by setting N_UPDATES_RANSAC to 0
+ * You can disable it by setting N_UPDATES_RANSAC to 0 in config file
  */
 #define RANSAC_FIRST 1
 
@@ -65,7 +65,7 @@
 
 /*
  * STATUS: in progress, do not use for now
- * Only update if innovation is significant wrt measurement uncertainty.
+ * Only update if expectation uncertainty is significant wrt measurement uncertainty.
  * 
  * Large updates are causing inconsistency because of linearization errors,
  * but too numerous updates are also causing inconsistency, 
@@ -87,6 +87,19 @@
  */
 #define RELEVANCE_TEST 0
 
+/*
+ * STATUS: seems to improve things, needs more testing but you can try it
+ * Only update P if expectation uncertainty is significant wrt measurement uncertainty.
+ *
+ * This is similar to RELEVANCE_TEST except that we always update mean, and
+ * update covariance only if innovation is relevant wrt measurement noise,
+ * and it is more stable than RELEVANCE_TEST.
+ *
+ * Needs testing to see if it is stable enough and how to tune the relevance
+ * threshold.
+ */
+#define RELEVANCE_TEST_P 0
+
 
 /*
  * STATUS: in progress, do not use for now
@@ -107,6 +120,16 @@
 	#error "dseg module is required for segment based slam"
 	#endif
 #endif
+
+
+/*
+ * STATUS: seems to work ok, needs a bit more testing but you can try it
+ * This option will allocate time to data managers to make them stop
+ * updating observations when there is no time anymore, in order to avoid
+ * missing frames.
+ */
+
+#define REAL_TIME_LIVE_RUN 0
 
 
 /** ############################################################################
@@ -157,7 +180,7 @@
 
 #include "rtslam/hardwareSensorCameraFirewire.hpp"
 #include "rtslam/hardwareSensorCameraUeye.hpp"
-#include "rtslam/hardwareEstimatorMti.hpp"
+#include "rtslam/hardwareSensorMti.hpp"
 #include "rtslam/hardwareSensorGpsGenom.hpp"
 #include "rtslam/hardwareSensorMocap.hpp"
 #include "rtslam/hardwareEstimatorOdo.hpp" 
@@ -168,7 +191,7 @@
 
 #include "rtslam/simuRawProcessors.hpp"
 #include "rtslam/hardwareSensorAdhocSimulator.hpp"
-#include "rtslam/hardwareEstimatorInertialAdhocSimulator.hpp"
+#include "rtslam/hardwareSensorInertialAdhocSimulator.hpp"
 #include "rtslam/exporterSocket.hpp"
 
 
@@ -644,15 +667,24 @@ void demo_slam_init()
 	// 1. Create maps.
 	map_ptr_t mapPtr(new MapAbstract(configEstimation.MAP_SIZE));
 	mapPtr->linkToParentWorld(worldPtr);
+
+	// should be min over all camera sensors
+	double cell_fov, min_cell_fov = 1e10;
+	cell_fov = 2. * atan(img_width / (2. * intrinsic(2))) / configEstimation.GRID_HCELLS;
+	if (cell_fov < min_cell_fov) min_cell_fov = cell_fov;
+	cell_fov = 2. * atan(img_height / (2. * intrinsic(3))) / configEstimation.GRID_VCELLS;
+	if (cell_fov < min_cell_fov) min_cell_fov = cell_fov;
+	min_cell_fov /= 2.; // security factor
+	min_cell_fov *= 180./M_PI;
 	
-   // 1b. Create map manager.
+	 // 1b. Create map manager.
 	landmark_factory_ptr_t pointLmkFactory;
 	landmark_factory_ptr_t segLmkFactory;
 #if SEGMENT_BASED
-   segLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPointsLine, LandmarkAnchoredHomogeneousPointsLine>());
+	 segLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPointsLine, LandmarkAnchoredHomogeneousPointsLine>());
 #endif
 #if SEGMENT_BASED != 1
-   pointLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPoint, LandmarkEuclideanPoint>());
+	 pointLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPoint, LandmarkEuclideanPoint>());
 #endif
 	map_manager_ptr_t mmPoint;
 	map_manager_ptr_t mmSeg;
@@ -666,10 +698,21 @@ void demo_slam_init()
 			break;
 		}
 		case 1: { // global
+			const int killSearchTh = 20;
+			const double killMatchTh = 0.5;
+			const double killConsistencyTh = 0.5;
+			const double killUncertaintyTh = 0.5;
+			const double gridDistInit = 0.5;
+			const double gridDistFactor = 2.0;
+			const int gridNDist = 5;
+			const double gridPhiFactor = 1.2;
+
 			if(pointLmkFactory != NULL)
-				mmPoint.reset(new MapManagerGlobal(pointLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE, 30, 0.5, 0.5));
+				mmPoint.reset(new MapManagerGlobal(pointLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE,
+					killSearchTh, killMatchTh, killConsistencyTh, killUncertaintyTh, min_cell_fov, gridDistInit, gridDistFactor, gridNDist, gridPhiFactor));
 			if(segLmkFactory != NULL)
-				mmSeg.reset(new MapManagerGlobal(segLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE, 30, 0.5, 0.5));
+				mmSeg.reset(new MapManagerGlobal(segLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE,
+					killSearchTh, killMatchTh, killConsistencyTh, killUncertaintyTh, min_cell_fov, gridDistInit, gridDistFactor, gridNDist, gridPhiFactor));
 			break;
 		}
 		case 2: { // local/multimap
@@ -677,7 +720,7 @@ void demo_slam_init()
 				mmPoint.reset(new MapManagerLocal(pointLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE));
 			if(segLmkFactory != NULL)
 				mmSeg.reset(new MapManagerLocal(segLmkFactory, configEstimation.REPARAM_TH, configEstimation.KILL_SEARCH_SIZE));
-			break;	
+			break;
 		}
 	}
 	if(mmPoint != NULL)
@@ -817,8 +860,8 @@ void demo_slam_init()
 		if (intOpts[iTrigger] != 0)
 		{
 			// just to initialize the MTI as an external trigger controlling shutter time
-			hardware::HardwareEstimatorMti hardEst1(
-				configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
+			hardware::HardwareSensorMti hardEst1(
+				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
 			floatOpts[fFreq] = hardEst1.getFreq();
 		}
 	}
@@ -843,10 +886,10 @@ void demo_slam_init()
 		robPtr1_->perturbation.set_std_continuous(pertStd);
 		robPtr1_->constantPerturbation = false;
 
-		hardware::hardware_estimator_ptr_t hardEst1;
+		hardware::hardware_sensorprop_ptr_t hardEst1;
 		if (intOpts[iSimu] != 0)
 		{
-			boost::shared_ptr<hardware::HardwareEstimatorInertialAdhocSimulator> hardEst1_(
+/*			boost::shared_ptr<hardware::HardwareEstimatorInertialAdhocSimulator> hardEst1_(
 				new hardware::HardwareEstimatorInertialAdhocSimulator(configSetup.SIMU_IMU_FREQ, 50, simulator, robPtr1_->id()));
 			hardEst1_->setSyncConfig(configSetup.SIMU_IMU_TIMESTAMP_CORRECTION);
 			
@@ -859,10 +902,10 @@ void demo_slam_init()
 				configSetup.SIMU_IMU_RANDWALKACC_FACTOR * configSetup.PERT_RANWALKACC);
 			
 			hardEst1 = hardEst1_;
-		} else
+*/		} else
 		{
-			boost::shared_ptr<hardware::HardwareEstimatorMti> hardEst1_(new hardware::HardwareEstimatorMti(
-				configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
+			boost::shared_ptr<hardware::HardwareSensorMti> hardEst1_(new hardware::HardwareSensorMti(
+				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
 			if (intOpts[iTrigger] != 0) floatOpts[fFreq] = hardEst1_->getFreq();
 			hardEst1_->setSyncConfig(configSetup.IMU_TIMESTAMP_CORRECTION);
 			//hardEst1_->setUseForInit(true);
@@ -876,7 +919,7 @@ void demo_slam_init()
 	} else
 	if (intOpts[iRobot] == 2) // odometry
 	{
-		robodo_ptr_t robPtr1_(new RobotOdometry(mapPtr));
+/*		robodo_ptr_t robPtr1_(new RobotOdometry(mapPtr));
 		robPtr1_->setId();	
 		std::cout<<"configSetup.dxNDR "<<configSetup.dxNDR<<std::endl;
 		std::cout<<"configSetup.dvNDR "<<configSetup.dvNDR<<std::endl;
@@ -894,6 +937,7 @@ void demo_slam_init()
 		hardEst2 = hardEst2_;
 		robPtr1_->setHardwareEstimator(hardEst2);	
 		robPtr1 = robPtr1_;
+		*/
 	}
 
 	robPtr1->linkToParentMap(mapPtr);
@@ -1064,7 +1108,7 @@ void demo_slam_init()
 				dmPt11->linkToParentMapManager(mmPoint);
 				dmPt11->setObservationFactory(obsFact);
 
-				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
+				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(&rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
 				senPtr11->setHardwareSensor(hardSen11);
 			#else
 				boost::shared_ptr<simu::DetectorSimu<image::ConvexRoi> > detector(new simu::DetectorSimu<image::ConvexRoi>(LandmarkAbstract::POINT, 2, configEstimation.PATCH_SIZE, configEstimation.PIX_NOISE, configEstimation.PIX_NOISE*configEstimation.PIX_NOISE_SIMUFACTOR));
@@ -1076,7 +1120,7 @@ void demo_slam_init()
 				dmPt11->linkToParentMapManager(mmPoint);
 				dmPt11->setObservationFactory(obsFact);
 
-				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
+				hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorAdhocSimulator(&rawdata_condition, floatOpts[fFreq], simulator, robPtr1->id(), senPtr11->id()));
 				senPtr11->setHardwareSensor(hardSen11);
 			#endif
 		} else
@@ -1124,7 +1168,7 @@ void demo_slam_init()
 					case 1: crop = VIAM_HW_CROP; break;
 					default: crop = VIAM_HW_FIXED; break;
 				}
-				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(rawdata_condition, 200,
+				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, 200,
 					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), 0, 8, crop, floatOpts[fFreq], intOpts[iTrigger],
 					floatOpts[fShutter], mode, strOpts[sDataPath]));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
@@ -1132,7 +1176,7 @@ void demo_slam_init()
 				#else
 				if (intOpts[iReplay] & 1)
 				{
-					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
+					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
 					senPtr11->setHardwareSensor(hardSen11);
 				}
 				#endif
@@ -1142,7 +1186,7 @@ void demo_slam_init()
 			} else if (configSetup.CAMERA_TYPE == 3)
 			{ // UEYE
 				#ifdef HAVE_UEYE
-				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(rawdata_condition, 200,
+				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, 200,
 					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), floatOpts[fFreq], intOpts[iTrigger],
 					floatOpts[fShutter], mode, strOpts[sDataPath]));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
@@ -1150,7 +1194,7 @@ void demo_slam_init()
 				#else
 				if (intOpts[iReplay] & 1)
 				{
-					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
+					hardware::hardware_sensorext_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, cv::Size(img_width,img_height),strOpts[sDataPath]));
 					senPtr11->setHardwareSensor(hardSen11);
 				}
 				#endif
@@ -1174,17 +1218,17 @@ void demo_slam_init()
 		{
 			case 1:
 			{
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
 				break;
 			}
 			case 2:
 			{
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
 				break;
 			}
 			case 3:
 			{
-				hardGps.reset(new hardware::HardwareSensorMocap(rawdata_condition, 200, mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorMocap(&rawdata_condition, 200, mode, strOpts[sDataPath]));
 				init = false;
 				break;
 			}
@@ -1205,7 +1249,7 @@ void demo_slam_init()
 		sensorManager.reset(new SensorManagerReplay(mapPtr));
 	else
 		sensorManager.reset(new SensorManagerOneAndOne(mapPtr));
-	
+
 	//--- force a first display with empty slam to ensure that all windows are loaded
 // std::cout << "SLAM: forcing first initialization display" << std::endl;
 	#ifdef HAVE_MODULE_QDISPLAY
@@ -1281,7 +1325,7 @@ void demo_slam_main(world_ptr_t *world)
 	}
 
 	// wait for their init
-	std::cout << "Sensors are calibrating..." << std::flush;
+	std::cout << "Sensors are calibrating... DON'T MOVE THE SYSTEM!!" << std::flush;
 	if ((intOpts[iRobot] == 1 || intOpts[iGps] == 1 || intOpts[iGps] == 2) && !(intOpts[iReplay] & 1)) sleep(2);
 	std::cout << " done." << std::endl;
 					
@@ -1359,15 +1403,20 @@ int n_innovation = 0;
 				JFR_DEBUG("Robot state stdev after move " << stdevFromCov(robPtr->state.P()));
 				robot_prediction = robPtr->state.x();
 				
-				pinfo.sen->process(pinfo.id);
+				#if REAL_TIME_LIVE_RUN
+				pinfo.sen->process(pinfo.id, pinfo.date_next);
+				#else
+				pinfo.sen->process(pinfo.id, -1.);
+				#endif
 				
 				JFR_DEBUG("Robot state after corrections of sensor " << pinfo.sen->id() << " : " << robPtr->state.x() << " ; euler " << quaternion::q2e(ublas::subrange(robPtr->state.x(), 3, 7)));
 				JFR_DEBUG("Robot state stdev after corrections " << stdevFromCov(robPtr->state.P()));
 				average_robot_innovation += ublas::norm_2(robPtr->state.x() - robot_prediction);
 				n_innovation++;
 				
+				robPtr->reinit_extrapolate();
 				if (exporter) exporter->exportCurrentState();
-#ifdef GENOM // export genom
+#ifdef GENOM_DISABLE // export genom
 				jblas::vec euler_x(3);
 				jblas::sym_mat euler_P(3,3);
 				quaternion::q2e(ublas::subrange(robotPtr->state.x(), 3, 7), ublas::subrange(robotPtr->state.P(), 3,7, 3,7), euler_x, euler_P);
@@ -1490,6 +1539,8 @@ int n_innovation = 0;
 
 	average_robot_innovation /= n_innovation;
 	std::cout << "average_robot_innovation " << average_robot_innovation << std::endl;
+	robot_ptr_t robPtr = (*world)->mapList().front()->robotList().front();
+	std::cout << "final_robot_position " << robPtr->state.x(0) << " " << robPtr->state.x(1) << " " << robPtr->state.x(2) << std::endl;
 
 	if (exporter) exporter->stop();
 	(*world)->slam_blocked(true);

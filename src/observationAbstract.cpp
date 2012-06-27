@@ -209,11 +209,12 @@ namespace jafar {
 		}
 
 		double ObservationAbstract::computeRelevance() {
-			// compute innovation score = squared mahalanobis distance of innovation.x wrt measurement.P
-			// but for faster result, and because measurement.P will probably always be diagonal, only use diagonal elements
+			// compute relevance score, maybe a ratio of areas would be better, but this is
+			// more simple and more general and should work ok
 			innovation.relevance = 0.0;
 			for (size_t i = 0; i < measurement.size(); ++i)
-				innovation.relevance += jmath::sqr(innovation.x()(i))/measurement.P(i,i);
+				innovation.relevance += expectation.P(i,i)/measurement.P(i,i);
+			innovation.relevance /= measurement.size();
 			return innovation.relevance;
 		}
 
@@ -241,10 +242,10 @@ namespace jafar {
 				((int*)&counters)[i] = 0;
 		}
 
-		void ObservationAbstract::update() {
+		void ObservationAbstract::update(bool correct_P) {
 			map_ptr_t mapPtr = sensorPtr()->robotPtr()->mapPtr();
 			ind_array ia_x = mapPtr->ia_used_states();
-			mapPtr->filterPtr->correct(ia_x,innovation,INN_rsl,ia_rsl) ;
+			mapPtr->filterPtr->correct(ia_x,innovation,INN_rsl,ia_rsl, correct_P) ;
 		}
 #if 0
 		bool ObservationAbstract::voteForKillingLandmark(){
