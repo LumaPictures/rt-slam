@@ -47,9 +47,11 @@ namespace rtslam {
 			sensor_ptr_t sen;
 			unsigned id;
 			bool no_more_data; // in offline mode, all of the sensors has no more data, so we stop everything
-			ProcessInfo(sensor_ptr_t sen, unsigned id): sen(sen), id(id), no_more_data(false) {}
-			ProcessInfo(bool no_more_data): sen(), id(0), no_more_data(no_more_data) {}
-			ProcessInfo(): sen(), id(0), no_more_data(false) {}
+			double date_next; // date of next data arrival
+			ProcessInfo(sensor_ptr_t sen, unsigned id, double date_next): sen(sen), id(id), no_more_data(false), date_next(date_next) {}
+			ProcessInfo(sensor_ptr_t sen, unsigned id): sen(sen), id(id), no_more_data(false), date_next(-1.) {}
+			ProcessInfo(bool no_more_data): sen(), id(0), no_more_data(no_more_data), date_next(-1.) {}
+			ProcessInfo(): sen(), id(0), no_more_data(false), date_next(-1.) {}
 		};
 		
 		SensorManagerAbstract(map_ptr_t mapPtr): mapPtr(mapPtr), start_date(0.), all_init(false) {}
@@ -226,7 +228,7 @@ namespace rtslam {
 					if (infosLast.available.size() > 0)
 					{
 						RawInfo &infoLast = infosLast.available.back();
-						return ProcessInfo(senLastPtr, infoLast.id);
+						return ProcessInfo(senLastPtr, infoLast.id, infosLast.next.arrival);
 					} else
 						return ProcessInfo(no_more_data); // wait
 				}
@@ -258,7 +260,7 @@ namespace rtslam {
 						if (infoAll.timestamp < infoLast.timestamp)
 							return ProcessInfo(senAllPtr, infoAll.id);
 						else
-							return ProcessInfo(senLastPtr, infoLast.id);
+							return ProcessInfo(senLastPtr, infoLast.id, infosLast.next.arrival);
 					} else
 					{ // has all but not last => use it if won't block next last (or next last hasn't arrived in time)
 						if (infoAll.timestamp < infosLast.next.timestamp || tnow > infosLast.next.arrival)
@@ -274,7 +276,7 @@ namespace rtslam {
 						{
 							RawInfo &infoLast = *it;
 							if (infoLast.timestamp < infosAll.next.timestamp || tnow > infosAll.next.arrival)
-								return ProcessInfo(senLastPtr, infoLast.id);
+								return ProcessInfo(senLastPtr, infoLast.id, infosLast.next.arrival);
 						}
 						return ProcessInfo(no_more_data); // wait
 					} else

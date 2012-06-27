@@ -58,8 +58,8 @@ class HardwareSensorCamera: public HardwareSensorExteroAbstract
 		/**
 		Same as before but assumes that mode=2, and doesn't need a camera
 		*/
-		HardwareSensorCamera(kernel::VariableCondition<int> &condition, cv::Size imgSize, std::string dump_path = ".");
-		HardwareSensorCamera(kernel::VariableCondition<int> &condition, int bufferSize);
+		HardwareSensorCamera(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path = ".");
+		HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize);
 };
 
 

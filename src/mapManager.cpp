@@ -140,7 +140,8 @@ namespace jafar {
 					 lmkIter != landmarkList().end(); ++lmkIter)
 			{
 				landmark_ptr_t lmkPtr = *lmkIter;
-				bool needToDie = false;
+				bool needToDie = lmkPtr->needToDie();
+				if (!needToDie)
 				for(LandmarkAbstract::ObservationList::iterator obsIter = lmkPtr->observationList().begin();
 						obsIter != lmkPtr->observationList().end(); ++obsIter)
 				{ // all observations (sensors) must agree to delete a landmark
@@ -155,7 +156,7 @@ namespace jafar {
 					if (obsPtr->events.predicted && obsPtr->events.measured && !obsPtr->events.updated)
 					{
 						if (obsPtr->searchSize > killSizeTh) {
-							JFR_DEBUG( "Obs " << lmkPtr->id() << " Killed by size (size " << obsPtr->searchSize << ")" );
+							JFR_DEBUG( "Lmk " << lmkPtr->id() << " Killed by size (size " << obsPtr->searchSize << ")" );
 							needToDie = true;
 							break;
 						}
@@ -232,50 +233,167 @@ namespace jafar {
 		/** ***************************************************************************************
 			MapManagerGlobal
 		******************************************************************************************/
-		
+
 		void MapManagerGlobal::manageDeletion()
 		{
+			// 1st, check individual parameters
+			/*
+			Kill if too unstable, invisible and too young, invisible and too uncertain
+			*/
 			for(MapManagerAbstract::LandmarkList::iterator lmkIter = this->landmarkList().begin();
 					 lmkIter != this->landmarkList().end(); ++lmkIter)
 			{
 				landmark_ptr_t lmkPtr = *lmkIter;
-				bool needToDie = false;
+				lmkPtr->fillEvents();
+				// 1a. test stability
+				bool needToDie_unstable = true, isYoung = true;
 				for(LandmarkAbstract::ObservationList::iterator obsIter = lmkPtr->observationList().begin();
 						obsIter != lmkPtr->observationList().end(); ++obsIter)
 				{ // all observations (sensors) must agree to delete a landmark
 					observation_ptr_t obsPtr = *obsIter;
-		
+
 					// kill if all sensors have unstable and inconsistent observations
-					if (obsPtr->counters.nSearch > killSearchTh) {
-						needToDie = true;
-						double matchRatio = obsPtr->counters.nMatch / (double)obsPtr->counters.nSearch;
-						double consistencyRatio = obsPtr->counters.nInlier / (double)obsPtr->counters.nMatch;
-		
-						if (matchRatio >= killMatchTh && consistencyRatio >= killConsistencyTh)
+					if (obsPtr->counters.nSearch > killSearchTh)
+					{
+						isYoung = false;
+						if (needToDie_unstable)
 						{
-							needToDie = false;
-							break;
+							double matchRatio = obsPtr->counters.nMatch / (double)obsPtr->counters.nSearch;
+							double consistencyRatio = obsPtr->counters.nInlier / (double)obsPtr->counters.nMatch;
+
+							if (matchRatio >= killMatchTh && consistencyRatio >= killConsistencyTh)
+								needToDie_unstable = false;
 						}
 					}
 				}
-				if (needToDie)
+				if (isYoung) needToDie_unstable = false;
+				// 1b. test age
+				bool needToDie_young = isYoung && !lmkPtr->visible;
+
+				// 1c. test uncertainty
+				bool needToDie_uncertain = false;
+				if (!lmkPtr->visible && !(needToDie_unstable || needToDie_young))
 				{
-					JFR_DEBUG( "Obs " << lmkPtr->id() << " Killed by unstability");
+					jblas::vec rob2lmk = lmkPtr->center() - ublas::subrange(this->mapPtr()->robotList().front()->state.x(), 0,3); // we will always have only one robot
+					double dist = ublas::norm_2(rob2lmk);
+					if (dist < 10.) needToDie_uncertain = (lmkPtr->uncertainty() / dist > killUncertaintyTh);
+				}
+
+				// 1z. delete if necessary
+				if (needToDie_unstable || needToDie_young || needToDie_uncertain)
+				{
+					JFR_DEBUG( "Lmk " << lmkPtr->id() << " Killed because " << (needToDie_unstable ? "unstable" : (needToDie_young ? "young" : (needToDie_uncertain ? "uncertain" : "?"))));
 					lmkIter = unregisterLandmark(lmkIter);
 				}
 			}
+
+			// 2nd, check density
+			/*
+			Build spherical 3D grids to limit landmarks density.
+			Only keep one invisible landmark per cell, one matched landmark per cell,
+			and one visible but failed landmark per cell. The landmark with lowest
+			uncertainty is kept (it implies that it has been observed from different
+			places).
+			All three grids are initialized coherently with the 2D active search grids
+			of the different sensors, but the grid for invisible landmarks has its
+			resolution progressively reduced when we need room for new landmarks.
+			*/
+			fillGrids(true);
+			processGrid(grid_visible_updated);
+			processGrid(grid_visible_failed);
+			processGrid(grid_invisible);
 		}
+
 		
-		 bool MapManagerGlobal::mapSpaceForInit()
+		void MapManagerGlobal::fillGrids(bool fill_visible)
 		{
-			if (!MapManager::mapSpaceForInit())
-			{
-				// TODO delete some landmarks
-				return false;
+			if (fill_visible) {
+				grid_visible_updated.map.clear();
+				grid_visible_failed.map.clear();
 			}
-			return true;
+			grid_invisible.map.clear();
+			for(MapManagerAbstract::LandmarkList::iterator lmkIter = this->landmarkList().begin();
+					 lmkIter != this->landmarkList().end(); ++lmkIter)
+			{
+				landmark_ptr_t lmkPtr = *lmkIter;
+				jblas::vec rob2lmk = lmkPtr->center() - ublas::subrange(this->mapPtr()->robotList().front()->state.x(), 0,3); // we will always have only one robot
+				if ((*lmkIter)->visible)
+				{
+					if (fill_visible)
+					{
+						if ((*lmkIter)->updatable) grid_visible_updated.getCell(rob2lmk, true)->landmarks.push_back(lmkPtr);
+																	else grid_visible_failed  .getCell(rob2lmk, true)->landmarks.push_back(lmkPtr);
+					}
+				} else
+					grid_invisible.getCell(rob2lmk, true)->landmarks.push_back(lmkPtr);
+			}
+		}
+
+
+		void MapManagerGlobal::processGrid(SphericalGrid<Cell> & grid)
+		{
+			for(SphericalGrid<Cell>::iterator gridIter = grid.map.begin(); gridIter != grid.map.end(); ++gridIter)
+				if (gridIter->second.landmarks.size() > 1)
+				{
+					// TODO check with visibility map, if landmarks have few in common we could keep them both
+
+					// find best
+					double min_uncert = 1e12;
+					landmark_ptr_t min_lmk;
+					for(std::list<landmark_ptr_t>::iterator lmkIter = gridIter->second.landmarks.begin(); lmkIter != gridIter->second.landmarks.end(); ++lmkIter)
+					{
+						double uncert = (*lmkIter)->uncertainty();
+						if (uncert < min_uncert)
+							{ min_uncert = uncert; min_lmk = *lmkIter; }
+						else if (uncert == min_uncert) // may happen with close to infinite uncertainty
+						{
+							if ((*lmkIter)->countObserved() > min_lmk->countObserved())
+								min_lmk = *lmkIter;
+						}
+					}
+
+					// kill others
+					bool erase_it;
+					for(std::list<landmark_ptr_t>::iterator lmkIter = gridIter->second.landmarks.begin();
+							lmkIter != gridIter->second.landmarks.end(); erase_it ? lmkIter = gridIter->second.landmarks.erase(lmkIter) : ++lmkIter)
+					{
+						erase_it = false;
+						if (*lmkIter != min_lmk)
+						{
+							JFR_DEBUG( "Lmk " << (*lmkIter)->id() << " Killed by density");
+							unregisterLandmark(*lmkIter);
+							erase_it = true;
+						}
+					}
+				}
+		}
+
+
+		bool MapManagerGlobal::mapSpaceForInit()
+		{
+			// FIXME should loop over all map managers ?
+			const double downresFactor = 1.1;
+
+			bool space;
+			while (!(space = MapManager::mapSpaceForInit()))
+			{
+				JFR_DEBUG("down res invisible map to free space");
+				grid_invisible.downRes(downresFactor);
+				fillGrids(false);
+				processGrid(grid_invisible);
+				if (grid_invisible.map.size() <= 1) break;
+			}
+			return space;
 		}
 		
+
+		bool MapManagerGlobal::isExclusive(observation_ptr_t obsPtr)
+		{
+//if (!obsPtr->updatable) std::cout << "obs " << obsPtr->id() << " is not exclusive" << std::endl;
+			return obsPtr->updatable;
+		}
+
+
 	}
 }
 

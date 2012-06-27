@@ -64,13 +64,14 @@ namespace hardware {
 
 				if (is_GetImageInfo(camera, imageID, &imageInfo, sizeof(imageInfo)) != IS_SUCCESS) continue;
 				bufferSpecPtr[buff_write]->timestamp = convertUeyeTime(imageInfo.TimestampSystem);
+				arrival_delay = bufferSpecPtr[buff_write]->arrival - bufferSpecPtr[buff_write]->timestamp;
 				// TODO use camera timestamp to filter pc timestamp
 				//double cameraTimeStamp = imageInfo.u64TimestampDevice * 1e-7;
 				//printf("%.16g\t%.19g\t%.12g\n", bufferSpecPtr[buff_write]->timestamp, bufferSpecPtr[buff_write]->arrival, imageInfo.u64TimestampDevice * 1e-7);
 				last_timestamp = bufferSpecPtr[buff_write]->timestamp;
 #endif
 			incWritePos();
-			condition.setAndNotify(1);
+			condition->setAndNotify(1);
 		}
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 
@@ -102,7 +103,7 @@ namespace hardware {
 	}
 		
 	
-	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> &condition, cv::Size imgSize, std::string dump_path):
+	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorCamera(condition, imgSize, dump_path)
 	{}
 	
@@ -180,7 +181,7 @@ namespace hardware {
 		init(mode, dump_path, imgSize);
 	}
 
-	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> &condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode, std::string dump_path):
+	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode, std::string dump_path):
 		HardwareSensorCamera(condition, bufferSize)
 	{
 		init(camera_id, size, shutter, freq, trigger, mode, dump_path);

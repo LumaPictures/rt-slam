@@ -249,12 +249,27 @@ namespace jafar {
 					storage_(_storage == UNCHANGED  ?  G.storage_                                              : _storage),
 					x_local (_storage == LOCAL      ?  G.x_                                                    : G.x_local),
 					P_local (_storage == LOCAL      ?  G.P_                                                    : G.P_local),
-					ia_     (_storage == LOCAL      ?  jafar::jmath::ublasExtra::ia_set(0, size_)            : G.ia_),
+					ia_     (_storage == LOCAL      ?  jafar::jmath::ublasExtra::ia_set(0, size_)              : G.ia_),
 					x_      (storage_ == LOCAL      ?  jblas::vec_indirect     (x_local, ia_.all())            : G.x_),
 					P_      (storage_ == LOCAL      ?  jblas::sym_mat_indirect (P_local, ia_.all(), ia_.all()) : G.P_)
 				{
 				}
 
+				/**
+				 * Initializer with same syntax as previous constructor
+				 */
+				inline void operator()(const Gaussian & G, storage_t _storage = UNCHANGED)
+				{
+					hasNullCov_ = G.hasNullCov_;
+					size_ = G.size_;
+					//       #     check storage       ?              # is local                                  : # is remote
+					storage_ = (_storage == UNCHANGED  ?  G.storage_                                              : _storage);
+					x_local  = (_storage == LOCAL      ?  G.x_                                                    : G.x_local);
+					P_local  = (_storage == LOCAL      ?  G.P_                                                    : G.P_local);
+					ia_      = (_storage == LOCAL      ?  jafar::jmath::ublasExtra::ia_set(0, size_)              : G.ia_);
+					x_       = (storage_ == LOCAL      ?  jblas::vec_indirect     (x_local, ia_.all())            : G.x_);
+					P_       = (storage_ == LOCAL      ?  jblas::sym_mat_indirect (P_local, ia_.all(), ia_.all()) : G.P_);
+				}
 
 				/**
 				 * Remote constructor from Gaussian.

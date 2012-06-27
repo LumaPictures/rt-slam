@@ -73,6 +73,7 @@ namespace hardware {
 					}
 				}
 #endif
+				if (isFull()) JFR_ERROR(RtslamException, RtslamException::BUFFER_OVERFLOW, "Data not read: Increase GPS buffer size !");
 				reading.arrival = kernel::Clock::getTime();
 				pos = (double*)(data+16);
 				var = (float*)(data+48);
@@ -84,6 +85,7 @@ namespace hardware {
 				reading.data(5) = var[0];
 				reading.data(6) = var[2];
 				//std::cout << "GPS poster : " << std::setprecision(15) << reading.data << std::endl;
+				arrival_delay = reading.arrival - reading.data(0);
 			}
 			
 			int buff_write = getWritePos();
@@ -91,6 +93,7 @@ namespace hardware {
 			buffer(buff_write).data(0) += timestamps_correction;
 			last_timestamp = reading.data(0);
 			incWritePos();
+			if (condition) condition->setAndNotify(1);
 			
 			if (mode == 1)
 			{
@@ -102,11 +105,13 @@ namespace hardware {
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 	
 	
-	HardwareSensorGpsGenom::HardwareSensorGpsGenom(kernel::VariableCondition<int> &condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
-		HardwareSensorProprioAbstract(condition, bufferSize), reading(7), mode(mode), dump_path(dump_path)
+	HardwareSensorGpsGenom::HardwareSensorGpsGenom(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
+		HardwareSensorProprioAbstract(condition, bufferSize, ctVar), mode(mode), dump_path(dump_path)
 	{
-		addQuantity(qPos, 1, 3);
-		//addQuantity(qAbsVel, 4, 3);
+		addQuantity(qPos);
+		//addQuantity(qAbsVel);
+		initData();
+
 		// configure
 		if (mode == 0 || mode == 1)
 		{

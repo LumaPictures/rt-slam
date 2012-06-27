@@ -15,6 +15,7 @@
 #include "jmath/misc.hpp"
 #include "jmath/jblas.hpp"
 #include "rtslam/rtSlam.hpp"
+#include "rtslam/spaceGrid.hpp"
 
 namespace jafar {
 namespace rtslam {
@@ -27,13 +28,6 @@ namespace rtslam {
 	class VisibilityMap
 	{
 		protected:
-			struct Index
-			{
-				int theta, phi, r; 
-				Index(int theta, int phi, int r): theta(theta), phi(phi), r(r) {}
-				bool operator<(Index const & a) const
-				{ return (theta == a.theta ? (phi == a.phi ? r < a.r : phi < a.phi) : theta < a.theta); }
-			};
 			struct Cell
 			{
 				unsigned nSuccess;
@@ -42,15 +36,12 @@ namespace rtslam {
 				unsigned lastTryFrame;
 				Cell(): nSuccess(0), nFailure(0), lastResult(false), lastTryFrame(0) {}
 			};
-			std::map<Index, Cell> map;
-			int nang, ndist;
-			double distInit, distFactor; int nDist;
+			SphericalGrid<Cell> grid;
 			double nCertainty;
 			Cell *lastCell;
 			double lastVis, lastVisUncert;
 		protected:
 			Cell* getCell(const observation_ptr_t obsPtr, bool create = false);
-			Cell* getCell(jblas::vec3 trans, bool create = false);
 		public:
 			/**
 			 * Constructor

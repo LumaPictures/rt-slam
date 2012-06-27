@@ -30,17 +30,18 @@ class HardwareSensorMocap: public HardwareSensorProprioAbstract
 		boost::thread *preloadTask_thread;
 		void preloadTask(void);
 		
-		RawVec reading;
 		int mode;
 		std::string dump_path;
 		double last_timestamp;
 		
 	public:
-		HardwareSensorMocap(kernel::VariableCondition<int> &condition, unsigned bufferSize, int mode = 0, std::string dump_path = ".");
+		HardwareSensorMocap(kernel::VariableCondition<int> *condition, unsigned bufferSize, int mode = 0, std::string dump_path = ".");
 		
 		virtual void start();
 		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
 		
+		jblas::ind_array instantValues() { return jmath::ublasExtra::ia_set(1,7); }
+		jblas::ind_array incrementValues() { return jmath::ublasExtra::ia_set(1,1); }
 };
 
 

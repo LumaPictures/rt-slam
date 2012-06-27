@@ -13,16 +13,10 @@
 #define HARDWARE_SENSOR_CAMERA_UEYE_HPP_
 
 #include <jafarConfig.h>
-#include <image/Image.hpp>
-#include <kernel/threads.hpp>
 
 #ifdef HAVE_UEYE
 #include <ueye.h>
 #endif
-
-#include <boost/thread.hpp>
-#include <boost/thread/thread.hpp>
-#include <boost/thread/mutex.hpp>
 
 #include "rtslam/hardwareSensorCamera.hpp"
 #include "rtslam/rawImage.hpp"
@@ -63,12 +57,12 @@ class HardwareSensorCameraUeye: public HardwareSensorCamera
 		@param mode 0 = normal, 1 = dump used images, 2 = from dumped images
 		@param dump_path the path where the images are saved/read... Use a ram disk !!!
 		*/
-		HardwareSensorCameraUeye(kernel::VariableCondition<int> &condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode = 0, std::string dump_path = ".");
+		HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode = 0, std::string dump_path = ".");
 #endif
 		/**
 		Same as before but assumes that mode=2, and doesn't need a camera
 		*/
-		HardwareSensorCameraUeye(kernel::VariableCondition<int> &condition, cv::Size imgSize, std::string dump_path = ".");
+		HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path = ".");
 		
 		~HardwareSensorCameraUeye();
 

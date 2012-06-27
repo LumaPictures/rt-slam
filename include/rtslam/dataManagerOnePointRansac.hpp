@@ -56,10 +56,12 @@ namespace jafar {
 					algorithmParams.n_tries = n_tries;
 					algorithmParams.n_init = n_init;
 					algorithmParams.n_recomp_gains = n_recomp_gains;
+					prev_average_ransac_update_time = -1.;
+					prev_average_as_update_time = -1.;
 				}
 				virtual ~DataManagerOnePointRansac() {
 				}
-				void processKnown(raw_ptr_t data);
+				void processKnown(raw_ptr_t data, double date_limit = -1.);
 				void detectNew(raw_ptr_t data);
 //				void process(boost::shared_ptr<RawAbstract> data);
 
@@ -76,6 +78,9 @@ namespace jafar {
 				ObsList obsBaseList;
 				ObsList obsFailedList;
 				RansacSetList ransacSetList;
+
+				double prev_average_ransac_update_time;
+				double prev_average_as_update_time;
 
 			protected: // parameters
 				struct alg_params_t {

@@ -46,8 +46,8 @@ namespace hardware {
 				{
 					if (!found_first) ndigit = i;
 					oss.str(""); oss << dump_path << "/image_" << std::setw(ndigit) << std::setfill('0') << index_load+first_index;
-					if (found_first != 2 && bufferSpecPtr[buff_write]->img->load(oss.str() + std::string(".pgm")) && found_first == 0) { found_first = 1; std::cout << "First image " << oss.str() << ".pgm" << std::endl; }
-					if (found_first != 1 && bufferSpecPtr[buff_write]->img->load(oss.str() + std::string(".png")) && found_first == 0) { found_first = 2; std::cout << "First image " << oss.str() << ".png" << std::endl; }
+					if (found_first != 2 && bufferSpecPtr[buff_write]->img->load(oss.str() + std::string(".pgm"), 0) && found_first == 0) { found_first = 1; std::cout << "First image " << oss.str() << ".pgm" << std::endl; }
+					if (found_first != 1 && bufferSpecPtr[buff_write]->img->load(oss.str() + std::string(".png"), 0) && found_first == 0) { found_first = 2; std::cout << "First image " << oss.str() << ".png" << std::endl; }
 					if (found_first) break;
 				}
 				if (!found_first) { first_index++; continue; }
@@ -66,7 +66,7 @@ namespace hardware {
 			}
 			if (no_more_data) break;
 			incWritePos();
-			condition.setAndNotify(1);
+			if (condition) condition->setAndNotify(1);
 		}
 	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
 
@@ -162,13 +162,13 @@ namespace hardware {
 	}
 
 	
-	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> &condition, cv::Size imgSize, std::string dump_path):
+	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorExteroAbstract(condition, 3), saveTask_cond(0)
 	{
 		init(dump_path, imgSize);
 	}
 
-	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> &condition, int bufferSize):
+	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize):
 		HardwareSensorExteroAbstract(condition, bufferSize), saveTask_cond(0)
 	{}
 
