@@ -111,39 +111,6 @@ namespace hardware {
 		return hwfreq;
 	}
 
-	
-	viam_hwformat_t HardwareSensorCameraFirewire::format_to_viamFormat(int format, int depth)
-	{
-		viam_hwformat_t hwformat;
-		switch (format)
-		{
-			case 0: { // MONO
-				switch (depth) {
-					case 8: hwformat = VIAM_HWFMT_MONO8; break;
-					case 16: hwformat = VIAM_HWFMT_MONO16; break;
-					default: hwformat = VIAM_HWFMT_INVALID;
-				}
-				break;
-			}
-			case 1: { // YUV
-				switch (depth) {
-					case 6: hwformat = VIAM_HWFMT_YUV411; break;
-					case 8: hwformat = VIAM_HWFMT_YUV422_UYVY; break;
-					case 12: hwformat = VIAM_HWFMT_YUV444; break;
-					default: hwformat = VIAM_HWFMT_INVALID;
-				}
-				break;
-			}
-			case 2: { // RGB
-				if (depth == 24) hwformat = VIAM_HWFMT_RGB888;
-				else hwformat = VIAM_HWFMT_INVALID;
-				break;
-			}
-			default: hwformat = VIAM_HWFMT_INVALID;
-		}
-		return hwformat;
-	}
-
 	viam_hwtrigger_t HardwareSensorCameraFirewire::trigger_to_viamTrigger(int trigger)
 	{
 		viam_hwtrigger_t hwtrigger;
@@ -157,6 +124,60 @@ namespace hardware {
 			case 0: hwtrigger = VIAM_HWTRIGGER_INTERNAL;
 		}
 		return hwtrigger;
+	}
+
+	void HardwareSensorCameraFirewire::format_to_viamFormat(cv::Size size, int format, viam_hwcrop_t crop, double freq, int trigger, ViamFormat & viam_format)
+	{
+		// fill filters and format
+		viam_hwformat_t hwformat = VIAM_HWFMT_INVALID;
+		switch (format / 10)
+		{
+			case 0: // gray
+				hwformat = VIAM_HWFMT_MONO8;
+				if (format > 0) std::cerr << "Bad image format " << format << std::endl;
+				break;
+			case 1: // RGB
+				hwformat = VIAM_HWFMT_RGB888;
+				if (format > 10) std::cerr << "Bad image format " << format << std::endl;
+				break;
+			case 2: // YUV
+				switch (format % 10)
+				{
+					case 0: hwformat = VIAM_HWFMT_YUV411; viam_format.filters.push_back(VIAM_FILTER_YUV411_TO_BGR); break;
+					case 1: hwformat = VIAM_HWFMT_YUV422_UYVY; viam_format.filters.push_back(VIAM_FILTER_YUV422_UYVY_TO_BGR); break;
+					case 2: hwformat = VIAM_HWFMT_YUV422_YUYV; viam_format.filters.push_back(VIAM_FILTER_YUV422_YUYV_TO_BGR); break;
+					case 3: hwformat = VIAM_HWFMT_YUV422_YYUV; viam_format.filters.push_back(VIAM_FILTER_YUV422_YYUV_TO_BGR); break;
+					case 4: hwformat = VIAM_HWFMT_YVU422_VYUY; viam_format.filters.push_back(VIAM_FILTER_YVU422_VYUY_TO_BGR); break;
+					case 5: hwformat = VIAM_HWFMT_YVU422_YVYU; viam_format.filters.push_back(VIAM_FILTER_YVU422_YVYU_TO_BGR); break;
+					case 6: hwformat = VIAM_HWFMT_YUV444; viam_format.filters.push_back(VIAM_FILTER_YUV444_TO_BGR); break;
+					default: std::cerr << "Bad image format " << format << std::endl; break;
+				}
+				break;
+			case 3: // bayer
+				hwformat = VIAM_HWFMT_MONO8;
+				switch (format % 10)
+				{
+					case 0: viam_format.filters.push_back(VIAM_FILTER_BAYER_NN_BGGR); break;
+					case 1: viam_format.filters.push_back(VIAM_FILTER_BAYER_NN_GRBG); break;
+					case 2: viam_format.filters.push_back(VIAM_FILTER_BAYER_NN_RGGB); break;
+					case 3: viam_format.filters.push_back(VIAM_FILTER_BAYER_NN_GBRG); break;
+					default: std::cerr << "Bad image format " << format << std::endl; break;
+				}
+				break;
+			default: std::cerr << "Bad image format " << format << std::endl; break;
+		}
+
+		if (format > 10)
+			viam_format.filters.push_back(VIAM_FILTER_BGR_TO_GRAY);
+		else if (format == 10)
+			viam_format.filters.push_back(VIAM_FILTER_RGB_TO_GRAY);
+
+		// fill format
+		viam_format.hwmode.size = size_to_viamSize(size);
+		viam_format.hwmode.format = hwformat;
+		viam_format.hwmode.crop = crop;
+		viam_format.hwmode.fps = freq_to_viamFreq(freq);
+		viam_format.hwmode.trigger = trigger_to_viamTrigger(trigger);
 	}
 
 #endif
@@ -175,6 +196,7 @@ namespace hardware {
 			int buff_write = getWritePos();
 			//if (!emptied_buffers) date = kernel::Clock::getTime();
 			r = viam_oneshot(handle, bank, &(bufferImage[buff_write]), &pts, 1);
+			if (r) continue;
 			//if (!emptied_buffers) { date = kernel::Clock::getTime()-date; if (date < 0.004) continue; else emptied_buffers = true; }
 			bufferSpecPtr[buff_write]->arrival = kernel::Clock::getTime();
 			bufferSpecPtr[buff_write]->timestamp = ts.tv_sec + ts.tv_usec*1e-6;
@@ -237,7 +259,7 @@ namespace hardware {
 	
 
 #ifdef HAVE_VIAM
-	void HardwareSensorCameraFirewire::init(const std::string &camera_id, viam_hwmode_t &hwmode, double shutter, int mode, std::string dump_path)
+	void HardwareSensorCameraFirewire::init(const std::string &camera_id, ViamFormat &viam_format, double shutter, int mode, std::string dump_path)
 	{
 		// configure camera
 		if (mode == 0 || mode == 1)
@@ -245,38 +267,59 @@ namespace hardware {
 			int r;
 			handle = viam_init();
 			viam_camera_t camera = viam_camera_create(handle, camera_id.c_str(), "camera1");
+			if (!camera) std::cerr << "viam_camera_create failed" << std::endl;
 			bank = viam_bank_create(handle,"bank1");
+			if (!bank) std::cerr << "viam_bank_create failed" << std::endl;
 			r = viam_bank_cameraadd(handle,bank,camera,"image1");
-			r = viam_camera_sethwmode(handle, camera, &hwmode);
+			if (r) std::cerr << "viam_bank_cameraadd failed with error " << r << std::endl;
+			r = viam_camera_sethwmode(handle, camera, &(viam_format.hwmode));
+			if (r) std::cerr << "viam_camera_sethwmode failed with error " << r << std::endl;
 			r = viam_hardware_load(handle,"dc1394");
-			
+			if (r) std::cerr << "viam_hardware_load failed with error " << r << std::endl;
+
 			r = viam_hardware_attach(handle);
+			if (r) std::cerr << "viam_hardware_attach failed with error " << r << std::endl;
 			r = viam_bank_configure(handle, bank);
-			
-			if (hwmode.trigger != VIAM_HWTRIGGER_MODE1_HIGH)
+			if (r) std::cerr << "viam_bank_configure failed with error " << r << std::endl;
+
+			viam_image_ref image = viam_image_getbyname(handle, "image1");
+
+			int i = 0;
+			for(std::list<viam_filterformat_t>::iterator it = viam_format.filters.begin(); it != viam_format.filters.end(); ++it)
+			{
+				std::ostringstream oss; oss << i++;
+				viam_filter_t filter = viam_filter_format_create(handle, oss.str().c_str(), VIAM_FILTER_FORMAT, *it);
+				if (!filter) std::cerr << "viam_filter_format_create failed" << std::endl;
+				viam_filter_push(handle, image, filter, VIAM_FILTER_SOFTWARE, VIAM_FILTER_MANUAL);
+				if (r) std::cerr << "viam_filter_push failed with error " << r << std::endl;
+			}
+
+			if (viam_format.hwmode.trigger != VIAM_HWTRIGGER_MODE1_HIGH)
 			{ 
-				viam_filter_t shutter_filter = NULL;
-				viam_image_ref image = viam_image_getbyname(handle, "image1");
-				shutter_filter = viam_filter_luminance_create(handle, "shutter", VIAM_FILTER_SHUTTER, VIAM_VALUE_ABSOLUTE, shutter);
+				viam_filter_t shutter_filter = viam_filter_luminance_create(handle, "shutter", VIAM_FILTER_SHUTTER, VIAM_VALUE_ABSOLUTE, shutter);
+				if (!shutter_filter) std::cerr << "viam_filter_luminance_create failed" << std::endl;
 				if (shutter >= 1e-6)
-					viam_filter_push(handle, image, shutter_filter, VIAM_FILTER_HARDWARE, VIAM_FILTER_MANUAL);
+					r = viam_filter_push(handle, image, shutter_filter, VIAM_FILTER_HARDWARE, VIAM_FILTER_MANUAL);
 				else
-					viam_filter_push(handle, image, shutter_filter, VIAM_FILTER_HARDWARE, VIAM_FILTER_HARDWARE_AUTO);
+					r = viam_filter_push(handle, image, shutter_filter, VIAM_FILTER_HARDWARE, VIAM_FILTER_HARDWARE_AUTO);
+				if (r) std::cerr << "viam_filter_push failed with error " << r << std::endl;
 			}
 			
 			r = viam_datatransmit(handle, bank, VIAM_ON);
+			if (r) std::cerr << "viam_datatransmit failed with error " << r << std::endl;
 		}
 
-		init(mode, dump_path, viamSize_to_size(hwmode.size));
+		init(mode, dump_path, viamSize_to_size(viam_format.hwmode.size));
 	}
 
-	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, int format, int depth, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode, std::string dump_path):
+	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, int format, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode, std::string dump_path):
 		HardwareSensorCamera(condition, bufferSize)
 	{
-		viam_hwmode_t hwmode = { size_to_viamSize(size), format_to_viamFormat(format, depth), crop, freq_to_viamFreq(freq), trigger_to_viamTrigger(trigger) };
-		realFreq = viamFreq_to_freq(hwmode.fps);
+		ViamFormat viam_format;
+		format_to_viamFormat(size, format, crop, freq, trigger, viam_format);
+		realFreq = viamFreq_to_freq(viam_format.hwmode.fps);
 		std::cout << "Camera set to freq " << realFreq << " Hz (external trigger " << trigger << ")" << std::endl;
-		init(camera_id, hwmode, shutter, mode, dump_path);
+		init(camera_id, viam_format, shutter, mode, dump_path);
 	}
 #endif
 

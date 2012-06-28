@@ -312,6 +312,7 @@ class ConfigSetup: public kernel::KeyValueFileSaveLoad
 	jblas::vec6 ROBOT_POSE; /// the transformation between the slam robot (the main sensor, camera or imu) and the real robot = pose of the real robot in the slam robot frame, just like the other sensors
 
 	unsigned CAMERA_TYPE;      /// camera type (0 = firewire, 1 = firewire format7, 2 = USB, 3 = UEYE)
+	unsigned CAMERA_FORMAT;    /// camera image format (0: GRAY8, 10: RGB24, 20: YUV411, 21: YUV422_UYVY, 22: YUV422_YUYV, 23: YUV422_YYUV, 24: YVU422_VYUY, 25: YVU422_YVYU, 26: YUV444, 30: BAYER_BGGR, 31: BAYER_GRBG, 32: BAYER_RGGB, 33: BAYER_GBRG)
 	std::string CAMERA_DEVICE; /// camera device (firewire ID or device)
 	unsigned IMG_WIDTH;        /// image width
 	unsigned IMG_HEIGHT;       /// image height
@@ -1127,7 +1128,7 @@ void demo_slam_init()
 					default: crop = VIAM_HW_FIXED; break;
 				}
 				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, 200,
-					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), 0, 8, crop, floatOpts[fFreq], intOpts[iTrigger],
+					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), configSetup.CAMERA_FORMAT, crop, floatOpts[fFreq], intOpts[iTrigger],
 					floatOpts[fShutter], mode, strOpts[sDataPath]));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
 				senPtr11->setHardwareSensor(hardSen11);
@@ -1783,6 +1784,7 @@ int main(int argc, char* const* argv)
  * ###########################################################################*/
 
 #define KeyValueFile_processItem(k) { read ? keyValueFile.getItem(#k, k) : keyValueFile.setItem(#k, k); }
+#define KeyValueFile_processItem_def(k, def) { read ? keyValueFile.getItem(#k, k, def) : keyValueFile.setItem(#k, k); }
 
 
 void ConfigSetup::loadKeyValueFile(jafar::kernel::KeyValueFile const& keyValueFile)
@@ -1814,6 +1816,7 @@ void ConfigSetup::processKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile,
 	} else
 	{
 		KeyValueFile_processItem(CAMERA_TYPE);
+		KeyValueFile_processItem_def(CAMERA_FORMAT, "0");
 		KeyValueFile_processItem(CAMERA_DEVICE);
 		KeyValueFile_processItem(IMG_WIDTH);
 		KeyValueFile_processItem(IMG_HEIGHT);
