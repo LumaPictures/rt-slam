@@ -66,7 +66,8 @@ namespace jafar {
 		    LMK_sg(_lmkPtr->state.size(),7),
 		    LMK_meas(_lmkPtr->state.size(),_size_meas),
 		    LMK_prior(_lmkPtr->state.size(),_size_nonobs),
-		    LMK_rs(_lmkPtr->state.size(),_senPtr->ia_globalPose.size())
+		    LMK_rs(_lmkPtr->state.size(),_senPtr->ia_globalPose.size()),
+		    updatable(false)
 		{
 			clearCounters();
 			clearFlags();
@@ -91,7 +92,8 @@ namespace jafar {
 		    LMK_sg(_lmkPtr->state.size(),7),
 		    LMK_meas(_lmkPtr->state.size(),_size),
 		    LMK_prior(_lmkPtr->state.size(),_size_nonobs),
-		    LMK_rs(_lmkPtr->state.size(),_senPtr->ia_globalPose.size())
+		    LMK_rs(_lmkPtr->state.size(),_senPtr->ia_globalPose.size()),
+		    updatable(false)
 		{
 	    category = OBSERVATION;
 			id(_lmkPtr->id());
