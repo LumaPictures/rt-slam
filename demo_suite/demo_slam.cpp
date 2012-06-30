@@ -458,7 +458,8 @@ kernel::VariableCondition<int> rawdata_condition(0);
 
 
 void demo_slam_init()
-{ try {
+{ JFR_GLOBAL_TRY
+
 	// preprocess options
 	if (intOpts[iReplay] & 1) mode = 2; else
 		if (intOpts[iDump]) mode = 1; else
@@ -1235,13 +1236,15 @@ void demo_slam_init()
 		case 2: exporter.reset(new ExporterPoster(robPtr1)); break;
 	}
 
-} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } } // demo_slam_init
+JFR_GLOBAL_CATCH
+} // demo_slam_init
+
 
 
 
 
 void demo_slam_main(world_ptr_t *world)
-{ try {
+{ JFR_GLOBAL_TRY
 
 	robot_ptr_t robotPtr;
 		
@@ -1486,7 +1489,8 @@ int n_innovation = 0;
 //	std::cout << "\nFINISHED ! Press a key to terminate." << std::endl;
 //	getchar();
 
-} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } } // demo_slam_main
+JFR_GLOBAL_CATCH
+} // demo_slam_main
 
 
 /** ############################################################################
@@ -1495,7 +1499,8 @@ int n_innovation = 0;
  * ###########################################################################*/
 
 void demo_slam_display(world_ptr_t *world)
-{ try {
+{ JFR_GLOBAL_TRY
+
 //	static unsigned prev_t = 0;
 	kernel::Timer timer(display_period*1000);
 	while(true)
@@ -1613,8 +1618,8 @@ void demo_slam_display(world_ptr_t *world)
 		if (intOpts[iDispQt]) break; else timer.wait();
 	}
 	
-} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
-
+JFR_GLOBAL_CATCH
+} // demo_slam_display
 
 /** ############################################################################
  * #############################################################################
@@ -1714,7 +1719,7 @@ void demo_slam_run() {
 	*   demo_slam --disp-2d=1 --disp-3d=1 --render-all=1 --replay=1 --dump=1 --rand-seed=1 --pause=0 --data-path=data/rtslam01
 	*/
 int main(int argc, char* const* argv)
-{ try {
+{ JFR_GLOBAL_TRY
 
 	intOpts[iVerbose] = 5;
 	intOpts[iMap] = 1;
@@ -1773,9 +1778,10 @@ int main(int argc, char* const* argv)
 	demo_slam_init();
 	demo_slam_run();
 	
-} catch (kernel::Exception &e) { std::cout << e.what();  throw e; } }
+JFR_GLOBAL_CATCH
+}
 
-#endif
+#endif // GENOM
 
 /** ############################################################################
  * #############################################################################
