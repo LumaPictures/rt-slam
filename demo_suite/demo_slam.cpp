@@ -256,8 +256,6 @@ const int nFirstBreakingOpt = nIntOpts+nFloatOpts+nStrOpts, nLastBreakingOpt = n
 
 /// !!WARNING!! be careful that options are in the same order above and below
 
-#ifndef GENOM
-
 struct option long_options[] = {
 	// int options
 	{"disp-2d", 2, 0, 0},
@@ -289,8 +287,6 @@ struct option long_options[] = {
 	{"usage",0,0,0},
 };
 
-#endif
-
 /** ############################################################################
  * #############################################################################
  * Config data
@@ -299,7 +295,6 @@ struct option long_options[] = {
 const int slam_priority = -20; // needs to be started as root to be < 0
 const int display_priority = 10;
 const int display_period = 100; // ms
-const unsigned N_FRAMES = 500000;
 
 
 class ConfigSetup: public kernel::KeyValueFileSaveLoad
@@ -455,10 +450,15 @@ display::ViewerQt *viewerQt = NULL;
 display::ViewerGdhe *viewerGdhe = NULL;
 #endif
 kernel::VariableCondition<int> rawdata_condition(0);
+bool ready = false;
+bool stop = false;
 
 
 void demo_slam_init()
 { JFR_GLOBAL_TRY
+
+	ready = false;
+	stop = false;
 
 	// preprocess options
 	if (intOpts[iReplay] & 1) mode = 2; else
@@ -568,8 +568,7 @@ void demo_slam_init()
 		dataLogger.reset(new kernel::DataLogger(strOpts[sDataPath] + "/" + strOpts[sLog]));
 		dataLogger->writeCurrentDate();
 		dataLogger->writeNewLine();
-#ifndef GENOM
-// FIXME do it for genom
+
 		// write options to log
 		std::ostringstream oss;
 		for(int i = 0; i < nIntOpts; ++i)
@@ -579,7 +578,6 @@ void demo_slam_init()
 		for(int i = 0; i < nStrOpts; ++i)
 			{ oss << long_options[i+nFirstStrOpt].name << " = " << strOpts[i]; dataLogger->writeComment(oss.str()); oss.str(""); }
 		dataLogger->writeNewLine();
-#endif
 	}
 
 	switch (intOpts[iVerbose])
@@ -1326,7 +1324,7 @@ int n_innovation = 0;
 	//if (dataLogger) dataLogger->log();
 	kernel::Chrono chrono;
 
-	for (; (*world)->t <= N_FRAMES;)
+	while (!stop)
 	{
 		if ((*world)->exit()) break;
 		
@@ -1350,6 +1348,12 @@ int n_innovation = 0;
 				robot_ptr_t robPtr = pinfo.sen->robotPtr();
 //std::cout << "Frame " << (*world)->t << " using sen " << pinfo.sen->id() << " at time " << std::setprecision(16) << newt << std::endl;
 				robPtr->move(newt);
+
+				if (!ready && sensorManager->allInit())
+				{ // here to ensure that at least one move has been done (to init estimator)
+					robPtr->reinit_extrapolate();
+					ready = true;
+				}
 				
 				JFR_DEBUG("Robot " << robPtr->id() << " state after move " << robPtr->state.x() << " ; euler " << quaternion::q2e(ublas::subrange(robPtr->state.x(), 3, 7)));
 				JFR_DEBUG("Robot state stdev after move " << stdevFromCov(robPtr->state.P()));
@@ -1367,7 +1371,7 @@ int n_innovation = 0;
 				n_innovation++;
 				
 				robPtr->reinit_extrapolate();
-				if (exporter) exporter->exportCurrentState();
+				if (exporter && ready) exporter->exportCurrentState();
 #ifdef GENOM_DISABLE // export genom
 				jblas::vec euler_x(3);
 				jblas::sym_mat euler_P(3,3);

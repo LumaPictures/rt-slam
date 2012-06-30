@@ -56,6 +56,7 @@ namespace rtslam {
 		
 		SensorManagerAbstract(map_ptr_t mapPtr): mapPtr(mapPtr), start_date(0.), all_init(false) {}
 		
+		bool allInit() { return all_init; }
 		void setStartDate(double start_date) { this->start_date = start_date; }
 		virtual ProcessInfo getNextDataToUse_func() = 0;
 
