@@ -23,7 +23,7 @@ namespace hardware {
 
 
 	void HardwareSensorGpsGenom::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		char data[256];
 #ifdef HAVE_POSTERLIB
 		H2TIME h2timestamp;
@@ -39,7 +39,7 @@ namespace hardware {
 			f.open(oss.str().c_str(), (mode == 1 ? std::ios_base::out : std::ios_base::in));
 		}
 		
-		while (true)
+		while (!stopping)
 		{
 			if (mode == 2)
 			{
@@ -52,7 +52,7 @@ namespace hardware {
 			} else
 			{
 #ifdef HAVE_POSTERLIB
-				while (true) // wait for new data
+				while (!stopping) // wait for new data
 				{
 					usleep(1000);
 					if (posterIoctl(posterId, FIO_GETDATE, &h2timestamp) != ERROR)
@@ -102,7 +102,8 @@ namespace hardware {
 			}
 			
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 	
 	
 	HardwareSensorGpsGenom::HardwareSensorGpsGenom(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
@@ -144,6 +145,14 @@ namespace hardware {
 			cond_offline_full.wait(l);
 		}
 	}
+
+	void HardwareSensorGpsGenom::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+	}
+
 	
 }}}
 

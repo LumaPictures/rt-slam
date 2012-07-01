@@ -183,13 +183,13 @@ namespace hardware {
 #endif
 
 	void HardwareSensorCameraFirewire::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		struct timeval ts, *pts = &ts;
 		int r;
 		//bool emptied_buffers = false;
 		//double date = 0.;
 
-		while(true)
+		while(!stopping)
 		{
 			// acquire the image
 #ifdef HAVE_VIAM
@@ -208,7 +208,8 @@ namespace hardware {
 #endif
 			if (condition) condition->setAndNotify(1);
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 
 	
 	void HardwareSensorCameraFirewire::init(int mode, std::string dump_path, cv::Size imgSize)
@@ -230,28 +231,8 @@ namespace hardware {
 		found_first = 0;
 		first_index = 0;
 		index_load = 0;
-
-		// start save tasks
-		if (mode == 1)
-		{
-			saveTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraFirewire::saveTask,this));
-			savePushTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraFirewire::savePushTask,this));
-		}
-		
 	}
 	
-	void HardwareSensorCameraFirewire::start()
-	{
-		// start acquire task
-		if (started) { std::cout << "Warning: This HardwareSensorCameraFirewire has already been started" << std::endl; return; }
-		started = true;
-		last_timestamp = kernel::Clock::getTime();
-		if (mode == 2)
-			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraFirewire::preloadTaskOffline,this));
-		else
-			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraFirewire::preloadTask,this));
-	}
-		
 	
 	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorCamera(condition, imgSize, dump_path)

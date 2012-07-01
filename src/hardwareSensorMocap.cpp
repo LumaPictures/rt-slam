@@ -19,7 +19,7 @@ namespace hardware {
 
 
 	void HardwareSensorMocap::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 
 		std::fstream f;
 		if (mode == 1 || mode == 2)
@@ -28,7 +28,7 @@ namespace hardware {
 			f.open(oss.str().c_str(), (mode == 1 ? std::ios_base::out : std::ios_base::in));
 		}
 		
-		while (true)
+		while (!stopping)
 		{
 			if (mode == 2)
 			{
@@ -57,7 +57,8 @@ namespace hardware {
 			}
 			
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 	
 	
 	HardwareSensorMocap::HardwareSensorMocap(kernel::VariableCondition<int> *condition, unsigned bufferSize, int mode, std::string dump_path):
@@ -88,6 +89,13 @@ namespace hardware {
 			cond_offline_full.wait(l);
 		}
 	}
-	
+
+	void HardwareSensorMocap::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+	}
+
 }}}
 

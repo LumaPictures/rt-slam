@@ -33,7 +33,8 @@ namespace hardware {
 				HardwareSensorExteroAbstract(condition, 3),
 				dt(1./freq), n(0), simulator(simulator), robId(robId), senId(senId) {}
 			virtual void start() {}
-			
+			virtual void stop() {}
+
 			int getRawInfo(size_t m, RawInfo &info)
 			{
 				info.timestamp = m*dt;

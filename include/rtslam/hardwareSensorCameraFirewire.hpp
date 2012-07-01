@@ -44,12 +44,7 @@ class HardwareSensorCameraFirewire: public HardwareSensorCamera
 		};
 #endif
 
-		double realFreq;
-		double last_timestamp;
-		
-		int mode;
-		
-		void preloadTask(void);
+		virtual void preloadTask(void);
 	
 #ifdef HAVE_VIAM
 		cv::Size viamSize_to_size(viam_hwsize_t hwsize);
@@ -96,9 +91,6 @@ class HardwareSensorCameraFirewire: public HardwareSensorCamera
 		
 		~HardwareSensorCameraFirewire();
 
-		virtual void start();
-		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
-		double getFreq() { return realFreq; }
 };
 
 typedef boost::shared_ptr<HardwareSensorCameraFirewire> hardware_sensor_firewire_ptr_t;

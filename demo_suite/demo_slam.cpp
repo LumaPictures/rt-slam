@@ -451,14 +451,12 @@ display::ViewerGdhe *viewerGdhe = NULL;
 #endif
 kernel::VariableCondition<int> rawdata_condition(0);
 bool ready = false;
-bool stop = false;
 
 
 void demo_slam_init()
 { JFR_GLOBAL_TRY
 
 	ready = false;
-	stop = false;
 
 	// preprocess options
 	if (intOpts[iReplay] & 1) mode = 2; else
@@ -1324,10 +1322,8 @@ int n_innovation = 0;
 	//if (dataLogger) dataLogger->log();
 	kernel::Chrono chrono;
 
-	while (!stop)
+	while (!(*world)->exit())
 	{
-		if ((*world)->exit()) break;
-		
 		bool had_data = false;
 		chrono.reset();
 
@@ -1490,6 +1486,25 @@ int n_innovation = 0;
 
 	if (exporter) exporter->stop();
 	(*world)->slam_blocked(true);
+
+	// stop all sensors
+	ready = false;
+	for (MapAbstract::RobotList::iterator robIter = mapPtr->robotList().begin();
+		robIter != mapPtr->robotList().end(); ++robIter)
+	{
+		if ((*robIter)->hardwareEstimatorPtr)
+		{
+			std::cout << "Stopping robot " << (*robIter)->id() << " estimator" << std::endl;
+			(*robIter)->hardwareEstimatorPtr->stop();
+		}
+		for (RobotAbstract::SensorList::iterator senIter = (*robIter)->sensorList().begin();
+			senIter != (*robIter)->sensorList().end(); ++senIter)
+		{
+			std::cout << "Stopping sensor " << (*senIter)->id() << std::endl;
+			(*senIter)->stop();
+		}
+	}
+
 //	std::cout << "\nFINISHED ! Press a key to terminate." << std::endl;
 //	getchar();
 
@@ -1507,7 +1522,7 @@ void demo_slam_display(world_ptr_t *world)
 
 //	static unsigned prev_t = 0;
 	kernel::Timer timer(display_period*1000);
-	while(true)
+	while(!(*world)->exit())
 	{
 		/*
 		if (intOpts[iDispQt])
@@ -1635,7 +1650,8 @@ void demo_slam_exit(world_ptr_t *world, boost::thread *thread_main) {
 	(*world)->display_condition.notify_all();
 // 	std::cout << "EXITING !!!" << std::endl;
 	//fputc('\n', stdin);
-	thread_main->timed_join(boost::posix_time::milliseconds(500));
+	thread_main->join();
+	//thread_main->timed_join(boost::posix_time::milliseconds(500));
 }
 
 /** ############################################################################

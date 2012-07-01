@@ -22,7 +22,7 @@ namespace rtslam {
 namespace hardware {
 
 	void HardwareSensorMti::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 #ifdef HAVE_MTI
 		INERTIAL_DATA data;
 #endif
@@ -35,7 +35,7 @@ namespace hardware {
 			f.open(oss.str().c_str(), (mode == 1 ? std::ios_base::out : std::ios_base::in));
 		}
 		
-		while (true)
+		while (!stopping)
 		{
 			if (mode == 2)
 			{
@@ -81,7 +81,8 @@ namespace hardware {
 		if (mode == 1 || mode == 2)
 			f.close();
 		
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 
 	HardwareSensorMti::HardwareSensorMti(kernel::VariableCondition<int> *condition, std::string device, double trigger_mode, double trigger_freq, double trigger_shutter, int bufferSize_, int mode, std::string dump_path):
 		HardwareSensorProprioAbstract(condition, bufferSize_, ctNone),
@@ -160,6 +161,13 @@ namespace hardware {
 		std::cout << " done." << std::endl;
 	}
 	
+	void HardwareSensorMti::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+	}
+
 	void HardwareSensorMti::setSyncConfig(double timestamps_correction/*, bool tightly_synchronized, double tight_offset*/)
 	{
 		this->timestamps_correction = timestamps_correction;

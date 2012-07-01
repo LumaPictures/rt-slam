@@ -28,17 +28,17 @@ namespace hardware {
 
 
 	void HardwareSensorCamera::preloadTaskOffline(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		int ndigit = 0;
 
-		while(true)
+		while(!stopping)
 		{
 			// acquire the image
 			boost::unique_lock<boost::mutex> l(mutex_data);
 			while (isFull(true)) cond_offline_freed.wait(l);
 			l.unlock();
 			int buff_write = getWritePos();
-			while (true)
+			while (!stopping)
 			{
 				// FIXME manage multisensors : put sensor id in filename
 				std::ostringstream oss;
@@ -68,12 +68,13 @@ namespace hardware {
 			incWritePos();
 			if (condition) condition->setAndNotify(1);
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 
 
 
 	void HardwareSensorCamera::savePushTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		int last_processed_index = index();
 		
 		// clean previously existing files
@@ -97,7 +98,7 @@ namespace hardware {
 		if (!r) {} // don't care
 		#endif
 		
-		while (true)
+		while (!stopping)
 		{
 			index.wait(boost::lambda::_1 != last_processed_index);
 			// push image to file for saving
@@ -108,16 +109,17 @@ namespace hardware {
 			saveTask_cond.notify();
 			last_processed_index = index();
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 	
 	
 	void HardwareSensorCamera::saveTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		
 		int save_index = index();
 		int remain = 0, prev_remain = 0;
 		
-		while (true)
+		while (!stopping || remain)
 		{
 			// wait for and get next data to save
 			saveTask_cond.wait(boost::lambda::_1 != 0, false);
@@ -138,7 +140,8 @@ namespace hardware {
 			
 			++save_index;
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 	
 	
 	void HardwareSensorCamera::init(std::string dump_path, cv::Size imgSize)
@@ -159,6 +162,40 @@ namespace hardware {
 		found_first = 0;
 		first_index = 0;
 		index_load = 0;
+	}
+
+
+	void HardwareSensorCamera::start()
+	{
+		if (started) { std::cout << "Warning: This HardwareSensorCameraFirewire has already been started" << std::endl; return; }
+
+		// start save tasks
+		if (mode == 1)
+		{
+			saveTask_thread = new boost::thread(boost::bind(&HardwareSensorCamera::saveTask,this));
+			savePushTask_thread = new boost::thread(boost::bind(&HardwareSensorCamera::savePushTask,this));
+		}
+
+		// start acquire task
+		last_timestamp = kernel::Clock::getTime();
+		if (mode == 2)
+			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCamera::preloadTaskOffline,this));
+		else
+			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCamera::preloadTask,this));
+
+		started = true;
+	}
+
+	void HardwareSensorCamera::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+		if (mode == 1)
+		{
+			savePushTask_thread->join();
+			saveTask_thread->join();
+		}
 	}
 
 	

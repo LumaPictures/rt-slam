@@ -27,7 +27,7 @@ namespace hardware {
 
 
 	void HardwareSensorExternalLoc::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		ExtLoc data;
 		ExtLocType data_type = elNExtLocType;
 #ifdef HAVE_POSTERLIB
@@ -49,7 +49,7 @@ namespace hardware {
 			}
 		}
 
-		while (true)
+		while (!stopping)
 		{
 			if (mode == 2)
 			{
@@ -62,7 +62,7 @@ namespace hardware {
 			} else
 			{
 #ifdef HAVE_POSTERLIB
-				while (true) // wait for new data
+				while (!stopping) // wait for new data
 				{
 					usleep(1000);
 					if (posterIoctl(posterId, FIO_GETDATE, &h2timestamp) != ERROR)
@@ -181,7 +181,8 @@ namespace hardware {
 			}
 			
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 	
 	
 	HardwareSensorExternalLoc::HardwareSensorExternalLoc(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
@@ -222,6 +223,14 @@ namespace hardware {
 			cond_offline_full.wait(l);
 		}
 	}
+
+	void HardwareSensorExternalLoc::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+	}
+
 	
 }}}
 

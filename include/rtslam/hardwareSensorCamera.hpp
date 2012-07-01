@@ -41,9 +41,13 @@ class HardwareSensorCamera: public HardwareSensorExteroAbstract
 		unsigned first_index;
 		int found_first; /// 0 = not found, 1 = found pgm, 2 = found png
 		
+		double realFreq;
+		double last_timestamp;
+		int mode;
 		std::string dump_path;
 		
 		boost::thread *preloadTask_thread;
+		virtual void preloadTask(void) = 0;
 		void preloadTaskOffline(void);
 		boost::thread *savePushTask_thread;
 		void savePushTask(void);
@@ -53,6 +57,8 @@ class HardwareSensorCamera: public HardwareSensorExteroAbstract
 	
 	
 		void init(std::string dump_path, cv::Size imgSize);
+		virtual void start();
+		virtual void stop();
 	public:
 		
 		/**
@@ -60,6 +66,9 @@ class HardwareSensorCamera: public HardwareSensorExteroAbstract
 		*/
 		HardwareSensorCamera(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path = ".");
 		HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize);
+
+		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
+		double getFreq() { return realFreq; }
 };
 
 

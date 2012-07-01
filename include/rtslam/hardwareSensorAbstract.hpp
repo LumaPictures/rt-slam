@@ -87,6 +87,13 @@ class HardwareSensorAbstract
 		double data_period;
 		double arrival_delay;
 		bool started; /// has the start() command been already run ?
+		/** the stop() command has been run, we should stop reading data
+		No need to protect it with a mutex for two reasons:
+		1. assigning and reading a boolean is an indivisible operation
+		2. boolean have only two possible values, so even if read/write clash
+		was possible it wouldn't hurt
+		*/
+		bool stopping;
 		
 		int bufferSize; /// size of the ring buffer
 		VecT buffer; /// the ring buffer
@@ -151,10 +158,11 @@ class HardwareSensorAbstract
 		HardwareSensorAbstract(kernel::VariableCondition<int> *condition, unsigned bufferSize):
 			write_pos(0), read_pos(0), buffer_full(false), read_pos_used(false),
 		  condition(condition), index(-1),
-		  data_count(0), no_more_data(false), timestamps_correction(0.0), started(false),
+			data_count(0), no_more_data(false), timestamps_correction(0.0), started(false), stopping(false),
 		  bufferSize(bufferSize), buffer(bufferSize)
 		{}
 		virtual void start() = 0; ///< start the acquisition thread, once the object is configured
+		virtual void stop() = 0; ///< stop the acquisition thread
 		void setSyncConfig(double timestamps_correction = 0.0)
 			{ this->timestamps_correction = timestamps_correction; }
 		/**

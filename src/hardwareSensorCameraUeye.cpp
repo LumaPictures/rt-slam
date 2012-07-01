@@ -43,14 +43,14 @@ namespace rtslam {
 namespace hardware {
 
 	void HardwareSensorCameraUeye::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 #ifdef HAVE_UEYE
 		char *image;
 		int imageID;
 		UEYEIMAGEINFO imageInfo;
 #endif
 
-		while(true)
+		while(!stopping)
 		{
 			// acquire the image
 #ifdef HAVE_UEYE
@@ -73,7 +73,8 @@ namespace hardware {
 			incWritePos();
 			condition->setAndNotify(1);
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 
 	
 	
@@ -81,27 +82,8 @@ namespace hardware {
 	{
 		this->mode = mode;
 		HardwareSensorCamera::init(dump_path, imgSize);
+	}
 
-		// start save tasks
-		if (mode == 1)
-		{
-			saveTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::saveTask,this));
-			savePushTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::savePushTask,this));
-		}
-	}
-	
-	void HardwareSensorCameraUeye::start()
-	{
-		// start acquire task
-		if (started) { std::cout << "Warning: This HardwareSensorCameraUeye has already been started" << std::endl; return; }
-		started = true;
-		last_timestamp = kernel::Clock::getTime();
-		if (mode == 2)
-			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::preloadTaskOffline,this));
-		else
-			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::preloadTask,this));
-	}
-		
 	
 	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorCamera(condition, imgSize, dump_path)

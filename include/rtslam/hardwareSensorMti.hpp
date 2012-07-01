@@ -54,6 +54,7 @@ namespace hardware {
 				double trigger_freq, double trigger_shutter, int bufferSize_, int mode = 0, std::string dump_path = ".");
 			~HardwareSensorMti();
 			virtual void start();
+			virtual void stop();
 			virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
 			void setSyncConfig(double timestamps_correction = 0.0/*, bool tightly_synchronized = false, double tight_offset*/);
 			

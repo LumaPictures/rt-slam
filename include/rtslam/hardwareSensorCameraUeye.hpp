@@ -37,12 +37,7 @@ class HardwareSensorCameraUeye: public HardwareSensorCamera
 		HIDS camera;
 #endif
 		
-		double realFreq;
-		double last_timestamp;
-		
-		int mode;
-
-		void preloadTask(void);
+		virtual void preloadTask(void);
 		
 		void init(int mode, std::string dump_path, cv::Size imgSize);
 #ifdef HAVE_UEYE
@@ -66,9 +61,6 @@ class HardwareSensorCameraUeye: public HardwareSensorCamera
 		
 		~HardwareSensorCameraUeye();
 
-		virtual void start();
-		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
-		double getFreq() { return realFreq; }
 };
 
 typedef boost::shared_ptr<HardwareSensorCameraUeye> hardware_sensor_ueye_ptr_t;
