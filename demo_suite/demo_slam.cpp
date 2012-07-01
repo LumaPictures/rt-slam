@@ -1173,11 +1173,14 @@ void demo_slam_init()
 		{
 			case 1:
 				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
+				break;
 			case 2:
 				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
+				break;
 			case 3:
 				hardGps.reset(new hardware::HardwareSensorMocap(&rawdata_condition, 200, mode, strOpts[sDataPath]));
 				init = false;
+				break;
 		}
 
 		hardGps->setSyncConfig(configSetup.GPS_TIMESTAMP_CORRECTION);
@@ -1853,7 +1856,12 @@ void ConfigSetup::processKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile,
 	KeyValueFile_processItem(UNCERT_VANG);
 	KeyValueFile_processItem(PERT_VLIN);
 	KeyValueFile_processItem(PERT_VANG);
-	
+
+	if (intOpts[iRobot] == 1 || intOpts[iTrigger] != 0)
+	{
+		KeyValueFile_processItem(MTI_DEVICE);
+	}
+
 	if (intOpts[iRobot] == 1)
 	{
 		KeyValueFile_processItem(MTI_DEVICE);

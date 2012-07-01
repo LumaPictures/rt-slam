@@ -164,7 +164,7 @@ namespace jafar {
 					double rollStd, double pitchStd, double yawStd,
 					bool degrees = false);
 				/**
-				 * Get the absolute real robot current full pose, in euler, at the given time
+				 * Get the absolute real robot current full pose, in euler roll/pitch/yaw, at the given time
 				 * (must be roughly current time or a little bit in the future, cannot be before last sensor integration)
 				 */
 				void getCurrentPose(double time, jblas::vec & x, jblas::vec & P);
