@@ -52,7 +52,12 @@ namespace jafar {
 			XNEW_pert(_size_state, _size_pert),
 			Q(_size_state, _size_state),
 			robot_pose(7), isOriginInit(false), origin(3),
-			extrapol_up_to_date(false)
+			extrapol_up_to_date(false),
+			control_extrapol(_size_control),
+			perturbation_extrapol(_size_pert),
+			XNEW_x_extrapol(_size_state, _size_state),
+			XNEW_pert_extrapol(_size_state, _size_pert),
+			Q_extrapol(_size_state, _size_state)
 		{
 			constantPerturbation = false;
 			category = ROBOT;
@@ -72,7 +77,12 @@ namespace jafar {
 			XNEW_pert(_size_state, _size_pert),
 			Q(_size_state, _size_state),
 			robot_pose(7), isOriginInit(false), origin(3),
-			extrapol_up_to_date(false)
+			extrapol_up_to_date(false),
+			control_extrapol(_size_control),
+			perturbation_extrapol(_size_pert),
+			XNEW_x_extrapol(_size_state, _size_state),
+			XNEW_pert_extrapol(_size_state, _size_pert),
+			Q_extrapol(_size_state, _size_state)
 		{
 			constantPerturbation = true;
 			category = ROBOT;
@@ -212,8 +222,9 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 
 		void RobotAbstract::getCurrentPose(double time, jblas::vec & x, jblas::vec & P)
 		{
+			if (state_extrapol_x.size() == 0) { x = P = jblas::zero_vec(7); }
 			move_extrapolate(time);
-			slamPoseToRobotPose(state_extrapol_x, state_extrapol_P, x, P);
+			slamPoseToRobotPose(ublas::subrange(state_extrapol_x,0,7), ublas::subrange(state_extrapol_P,0,7,0,7), x, P);
 		}
 		
 		void RobotAbstract::computeStatePerturbation() {
@@ -223,6 +234,9 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 //JFR_DEBUG("Q " << Q);
 		}
 
+		void RobotAbstract::computeStatePerturbation_extrapol() {
+			Q_extrapol = jmath::ublasExtra::prod_JPJt(perturbation_extrapol.P(), XNEW_pert_extrapol);
+		}
 
 		void RobotAbstract::computeControls(double time1, double time2, jblas::mat & controls, bool release = true)
 		{
@@ -321,14 +335,14 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 		void RobotAbstract::move_extrapolate() {
 			vec xnew(state_extrapol_x.size());
 
-			move_func(state_extrapol_x, control, perturbation.x(), dt_or_dx, xnew, XNEW_x, XNEW_pert);
+			move_func(state_extrapol_x, control_extrapol, perturbation_extrapol.x(), dt_or_dx_extrapol, xnew, XNEW_x_extrapol, XNEW_pert_extrapol);
 			state_extrapol_x = xnew;
 
-			if (!constantPerturbation) computeStatePerturbation();
+			if (!constantPerturbation) computeStatePerturbation_extrapol();
 
 			ind_array ia_inv = ia_set(0,0); // empty
 			ind_array ia_state = ia_set(0, state.size());
-			ixaxpy_prod(state_extrapol_P, ia_inv, XNEW_x, ia_state, ia_state, Q);
+			ixaxpy_prod(state_extrapol_P, ia_inv, XNEW_x_extrapol, ia_state, ia_state, Q_extrapol);
 		}
 
 		void RobotAbstract::move_extrapolate(double time)
@@ -343,20 +357,20 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 			l.unlock();
 			if (hardwareEstimatorPtr)
 			{
-				computeControls(self_time_extrapol, time, controls, false);
-				for(size_t i = 0; i < controls.size1(); ++i)
+				computeControls(self_time_extrapol, time, controls_extrapol, false);
+				for(size_t i = 0; i < controls_extrapol.size1(); ++i)
 				{
-					dt_or_dx = controls(i,0);
-					perturbation.set_from_continuous(dt_or_dx);
-					control = ublas::subrange(matrix_row<jblas::mat>(controls, i), 1, control.size());
+					dt_or_dx_extrapol = controls_extrapol(i,0);
+					perturbation_extrapol.set_from_continuous(dt_or_dx_extrapol);
+					control_extrapol = ublas::subrange(matrix_row<jblas::mat>(controls_extrapol, i), 1, control_extrapol.size()+1);
 					move_extrapolate();
 				}
 
 			} else
 			{
-				dt_or_dx = time - self_time_extrapol;
-				perturbation.set_from_continuous(dt_or_dx);
-				control.clear();
+				dt_or_dx_extrapol = time - self_time_extrapol;
+				perturbation_extrapol.set_from_continuous(dt_or_dx_extrapol);
+				control_extrapol.clear();
 				move_extrapolate();
 			}
 			self_time_extrapol = time;

@@ -203,6 +203,14 @@ namespace jafar {
 				double self_time_extrapol, self_time_extrapol_init;
 				jblas::vec state_extrapol_x, state_extrapol_x_init;
 				jblas::sym_mat state_extrapol_P, state_extrapol_P_init;
+				vec control_extrapol;
+				Perturbation perturbation_extrapol;
+				double dt_or_dx_extrapol;
+				jblas::mat controls_extrapol;
+				jblas::mat XNEW_x_extrapol;
+				jblas::mat XNEW_pert_extrapol;
+				jblas::sym_mat Q_extrapol;
+
 
 				virtual size_t mySize() = 0;
 				virtual size_t mySize_control() = 0;
@@ -305,6 +313,7 @@ namespace jafar {
 				 * where XNEW_pert and perturbation.P() must have been already computed.
 				 */
 				void computeStatePerturbation();
+				void computeStatePerturbation_extrapol();
 
 
 				virtual void writeLogHeader(kernel::DataLogger& log) const;
