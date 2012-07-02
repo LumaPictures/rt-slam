@@ -1722,7 +1722,7 @@ void demo_slam_run() {
 	* --usage
 	* --robot 0=constant vel, 1=inertial, 2=odometry
 	* --map 0=odometry, 1=global, 2=local/multimap
-	* --trigger 0=internal, 1=external mode 1, 2=external mode 0, 3=external mode 14 (PointGrey (Flea) only)
+	* --trigger 0=internal, 1=external mode 1 (controls shutter), 2=external mode 0, 3=external mode 14 (PointGrey (Flea) only)
 	* --simu 0 or <environment id>*10+<trajectory id> (
 	* --camera=0/1/2/3 -> Disable / Mono / Stereo / Bicam
 	* --freq camera frequency in double Hz (with trigger==0/1)

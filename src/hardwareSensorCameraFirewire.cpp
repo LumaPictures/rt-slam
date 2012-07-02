@@ -275,6 +275,7 @@ namespace hardware {
 				if (r) std::cerr << "viam_filter_push failed with error " << r << std::endl;
 			}
 
+			if (viam_format.hwmode.trigger == VIAM_HWTRIGGER_MODE1_HIGH && shutter < 1e-6) viam_format.hwmode.trigger = VIAM_HWTRIGGER_MODE0_HIGH;
 			if (viam_format.hwmode.trigger != VIAM_HWTRIGGER_MODE1_HIGH)
 			{ 
 				viam_filter_t shutter_filter = viam_filter_luminance_create(handle, "shutter", VIAM_FILTER_SHUTTER, VIAM_VALUE_ABSOLUTE, shutter);
