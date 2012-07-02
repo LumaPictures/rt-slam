@@ -209,7 +209,7 @@ namespace jafar {
 						// for first reading we force initialization
 						// FIXME do it correctly if the robot has already started... not sure it is useful though
 
-						if (indexD_OriEuler) // need to set ori uncertainty before pos uncertainty because of sensor lever arm
+						if (indexD_OriEuler >= 0) // need to set ori uncertainty before pos uncertainty because of sensor lever arm
 						{
 							jblas::mat Q_qr(4,4), QR_e(4,3), Q_exp(4,3);
 							jblas::vec qr, ri = quaternion::q2qc(r);
@@ -229,7 +229,7 @@ namespace jafar {
 								" e = " <<  quaternion::q2e(ublas::subrange(robotPtr()->pose.x(), 3, 7)) << std::endl;
 						}
 
-						if (indexD_Pos)
+						if (indexD_Pos >= 0)
 						{
 							robotPtr()->origin = ublas::subrange(measurement->x(), indexE_Pos,indexE_Pos+3) - Tr - ublas::subrange(robotPtr()->state.x(),0,3);
 							ublas::subrange(robotPtr()->pose.x(), 0, 3) = jblas::zero_vec(3);
