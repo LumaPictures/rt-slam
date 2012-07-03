@@ -365,9 +365,12 @@ namespace jafar {
 								RoiSpec roi;
 								if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
 								{
-									 roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
-									 obsPtr->searchSize = roi.count();
-									 if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
+									if (obsPtr->expectation.P(0,0)*obsPtr->expectation.P(1,1) > 5*jmath::sqr(matcher->params.maxSearchSize/jmath::sqr(matcher->params.mahalanobisTh)))
+										continue;
+									else // normal case
+										roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
+									obsPtr->searchSize = roi.count();
+									if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
 								}
 								else // Segment
 								{
@@ -758,7 +761,10 @@ namespace jafar {
 				RoiSpec roi;
 				if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and having a size4 expectation the following roi computation fails, hence the test  - TODO clean up all this, is should not mess with One point ransac
 				{
-					roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
+					if (obsPtr->expectation.P(0,0)*obsPtr->expectation.P(1,1) > 5*jmath::sqr(matcher->params.maxSearchSize/jmath::sqr(matcher->params.mahalanobisTh)))
+						return false;
+					else // normal case
+						roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
 					obsPtr->searchSize = roi.count();
 					if (obsPtr->searchSize > matcher->params.maxSearchSize) roi.scale(sqrt(matcher->params.maxSearchSize/(double)obsPtr->searchSize));
 				}
