@@ -365,7 +365,7 @@ namespace jafar {
 								RoiSpec roi;
 								if(obsPtr->expectation.P().size1() == 2) // basically DsegMatcher handles it's own roi and (due to the size4 expectation) the following roi computation fails. - TODO clean up all this, is should not mess with One point ransac
 								{
-									if (obsPtr->expectation.P(0,0)*obsPtr->expectation.P(1,1) > 5*jmath::sqr(matcher->params.maxSearchSize/jmath::sqr(matcher->params.mahalanobisTh)))
+									if (obsPtr->expectation.P(0,0)*obsPtr->expectation.P(1,1) > 25*jmath::sqr(matcher->params.maxSearchSize/jmath::sqr(matcher->params.mahalanobisTh)))
 										continue;
 									else // normal case
 										roi = RoiSpec(obsPtr->expectation.x(), obsPtr->expectation.P() + matcher->params.measVar*identity_mat(2), matcher->params.mahalanobisTh);
