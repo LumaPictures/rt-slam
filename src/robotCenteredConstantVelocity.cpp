@@ -54,7 +54,10 @@ namespace jafar {
 				const vec & _x, const vec & _u,
 		    const vec & _n, const double _dt,
 		    vec & _xnew, mat & _XNEW_x,
-		    mat & _XNEW_u) {
+				mat & _XNEW_u, unsigned tempSet) const {
+
+			TempVariables & t = (tempSet == 0 ? tempvars0 : tempvars1);
+			if (tempSet > 1) std::cerr << "Error: RobotCenteredConstantVelocity has only 2 sets of temps variables, increase it if you need more" << std::endl;
 
 			using namespace jblas;
 			using namespace ublas;
@@ -126,7 +129,7 @@ namespace jafar {
 			 * -----------------------------------------------------------------------------
 			 */
 
-			lastJump = ublas::subrange(_x, 0, 7) ; // will be used in the reframe process of : the robot, the landmarks.
+			t.lastJump = ublas::subrange(_x, 0, 7) ; // will be used in the reframe process of : the robot, the landmarks.
 
 
 			// TODO the internals jacobians (of fix size)
@@ -148,7 +151,7 @@ namespace jafar {
 
 			// split robot state vector (F is the reference frame change between t and t+1)
 			splitState(_x, p, q, v, w, pbase, qbase);
-			lastJump = ublas::subrange(_x, 0, 7) ;
+			t.lastJump = ublas::subrange(_x, 0, 7) ;
 
 			// split perturbation vector
 			vec3 vi, wi;
@@ -157,12 +160,12 @@ namespace jafar {
 			// predict each part of the state, give or build non-trivial Jacobians
 			// 1- PQVW at t+1
 			pnew      = v   * _dt; // FIXME reframe the new position and quaternion (position R_t relative to frame R_t-1)
-			PNEW_v    = I_3 * _dt;
-			quaternion::v2q(w * _dt, qnew, QNEW_wdt); // FiXME _w or _wdt
+			t.PNEW_v    = I_3 * _dt;
+			quaternion::v2q(w * _dt, qnew, t.QNEW_wdt); // FiXME _w or _wdt
 			vnew      = v + vi;
 			wnew      = w + wi;
 			// 2- PQ-of-Base at t+1 (reframe the base frame)
-			quaternion::eucToFrame(lastJump, pbase, pbasenew, PBASENEW_f, PBASENEW_pbase) ; // pbase
+			quaternion::eucToFrame(t.lastJump, pbase, pbasenew, PBASENEW_f, PBASENEW_pbase) ; // pbase
 			quaternion::qProd(qbase, q, qbasenew, QBASENEW_qbase, QBASENEW_q)      ; // qbase
 
 			// Re-compose state - this is the output state.
@@ -170,8 +173,8 @@ namespace jafar {
 
 			// Build transition Jacobian matrix XNEW_x
 			_XNEW_x.clear() ;
-			project(_XNEW_x, range(0 , 3 ), range(7 , 10)) = PNEW_v        ;
-			project(_XNEW_x, range(3 , 7 ), range(10, 13)) = QNEW_wdt      ; // FIXME jacobian wrt w or wdt
+			project(_XNEW_x, range(0 , 3 ), range(7 , 10)) = t.PNEW_v        ;
+			project(_XNEW_x, range(3 , 7 ), range(10, 13)) = t.QNEW_wdt      ; // FIXME jacobian wrt w or wdt
 			project(_XNEW_x, range(7 , 10), range(7 , 10)) = I_3           ;
 			project(_XNEW_x, range(10, 13), range(10, 13)) = I_3           ;
 			project(_XNEW_x, range(13, 16), range(0 , 7 )) = PBASENEW_f    ;

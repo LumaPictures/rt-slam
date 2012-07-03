@@ -44,7 +44,10 @@ namespace jafar {
 
 		void RobotOdometry::move_func(const vec & _x, const vec & _u,
 		    const vec & _n, const double _dt, vec & _xnew, mat & _XNEW_x,
-		    mat & _XNEW_u) {
+				mat & _XNEW_u, unsigned tempSet) const
+		{
+			TempVariables & t = (tempSet == 0 ? tempvars0 : tempvars1);
+			if (tempSet > 1) std::cerr << "Error: RobotOdometry has only 2 sets of temps variables, increase it if you need more" << std::endl;
 
 			using namespace jblas;
 			using namespace ublas;
@@ -93,24 +96,24 @@ namespace jafar {
 			// position update
 			vec3 pnew;
 			vec4 qnew;
-			quaternion::eucFromFrame(_x, dx, pnew, PNEW_x, PNEW_dx); 
+			quaternion::eucFromFrame(_x, dx, pnew, PNEW_x, t.PNEW_dx);
 			
 			//quaternion update
 			vec4 qdv;
-			quaternion::v2q(dv, qdv, QDV_dv); //orientation increment to quaternion with jacobians
-			quaternion::qProd(q, qdv, qnew, QNEW_q, QNEW_qdv);
+			quaternion::v2q(dv, qdv, t.QDV_dv); //orientation increment to quaternion with jacobians
+			quaternion::qProd(q, qdv, qnew, t.QNEW_q, t.QNEW_qdv);
 			
-			QNEW_dv = prod(QNEW_qdv, QDV_dv);
+			t.QNEW_dv = prod(t.QNEW_qdv, t.QDV_dv);
 			
 			unsplitState(pnew, qnew, _xnew);
 			
 			_XNEW_x.clear();
 			subrange(_XNEW_x, 0, 3, 0, 7) = PNEW_x;
-			subrange(_XNEW_x, 3, 7, 3, 7) = QNEW_q;
+			subrange(_XNEW_x, 3, 7, 3, 7) = t.QNEW_q;
 
 			_XNEW_u.clear();
-			subrange(_XNEW_u, 0, 3, 0, 3) = PNEW_dx;
-			subrange(_XNEW_u, 3, 7, 3, 6) = QNEW_dv;			
+			subrange(_XNEW_u, 0, 3, 0, 3) = t.PNEW_dx;
+			subrange(_XNEW_u, 3, 7, 3, 6) = t.QNEW_dv;
 		}
 			
 

@@ -47,7 +47,10 @@ namespace jafar {
 
 		void RobotConstantVelocity::move_func(const vec & _x, const vec & _u,
 		    const vec & _n, const double _dt, vec & _xnew, mat & _XNEW_x,
-		    mat & _XNEW_u) {
+				mat & _XNEW_u, unsigned tempSet) const
+		{
+			TempVariables & t = (tempSet == 0 ? tempvars0 : tempvars1);
+			if (tempSet > 1) std::cerr << "Error: RobotConstantVelocity has only 2 sets of temps variables, increase it if you need more" << std::endl;
 
 			using namespace jblas;
 			using namespace ublas;
@@ -106,16 +109,16 @@ namespace jafar {
 
 			// predict each part of the state, give or build non-trivial Jacobians
 			pnew = p + v * _dt;
-			PNEW_v = I_3 * _dt;
+			t.PNEW_v = I_3 * _dt;
 			vec4 qwdt;
-			quaternion::v2q(w * _dt, qwdt, QWDT_wdt);
-			quaternion::qProd(q, qwdt, qnew, QNEW_q, QNEW_qwdt);
-			QNEW_wdt = prod(QNEW_qwdt, QWDT_wdt);
+			quaternion::v2q(w * _dt, qwdt, t.QWDT_wdt);
+			quaternion::qProd(q, qwdt, qnew, t.QNEW_q, t.QNEW_qwdt);
+			t.QNEW_wdt = prod(t.QNEW_qwdt, t.QWDT_wdt);
 			vnew = v + vi;
 			wnew = w + wi;
 
 			// normalize quaternion
-			ublasExtra::normalizeJac(qnew, QNORM_qnew);
+			ublasExtra::normalizeJac(qnew, t.QNORM_qnew);
 			ublasExtra::normalize(qnew);
 
 			// Compose state - this is the output state.
@@ -123,9 +126,9 @@ namespace jafar {
 
 			// Build transition Jacobian matrix XNEW_x
 			_XNEW_x.assign(identity_mat(state.size()));
-			project(_XNEW_x, range(0, 3), range(7, 10)) = PNEW_v;
-			project(_XNEW_x, range(3, 7), range(3, 7)) = prod(QNORM_qnew,QNEW_q);
-			project(_XNEW_x, range(3, 7), range(10, 13)) = prod(QNORM_qnew,QNEW_wdt) * _dt;
+			project(_XNEW_x, range(0, 3), range(7, 10)) = t.PNEW_v;
+			project(_XNEW_x, range(3, 7), range(3, 7)) = prod(t.QNORM_qnew,t.QNEW_q);
+			project(_XNEW_x, range(3, 7), range(10, 13)) = prod(t.QNORM_qnew,t.QNEW_wdt) * _dt;
 
 			/*
 			 * We are normally supposed here to build the perturbation Jacobian matrix XNEW_pert.

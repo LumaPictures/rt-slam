@@ -238,7 +238,7 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 			Q_extrapol = jmath::ublasExtra::prod_JPJt(perturbation_extrapol.P(), XNEW_pert_extrapol);
 		}
 
-		void RobotAbstract::computeControls(double time1, double time2, jblas::mat & controls, bool release = true)
+		void RobotAbstract::computeControls(double time1, double time2, jblas::mat & controls, bool release = true) const
 		{
 			hardware::HardwareSensorProprioAbstract::VecIndT readings = hardwareEstimatorPtr->getRaws(time1, time2, release);
 			unsigned data_vsize = readings(0).data.size();
@@ -277,7 +277,6 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 				++j;
 			}
 			if (j < controls.size1()) controls.resize(j, controls.size2(), true); // should very rarely happen
-			dt_or_dx = time2 - time1;
 		}
 
 
@@ -335,7 +334,7 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 		void RobotAbstract::move_extrapolate() {
 			vec xnew(state_extrapol_x.size());
 
-			move_func(state_extrapol_x, control_extrapol, perturbation_extrapol.x(), dt_or_dx_extrapol, xnew, XNEW_x_extrapol, XNEW_pert_extrapol);
+			move_func(state_extrapol_x, control_extrapol, perturbation_extrapol.x(), dt_or_dx_extrapol, xnew, XNEW_x_extrapol, XNEW_pert_extrapol, 1);
 			state_extrapol_x = xnew;
 
 			if (!constantPerturbation) computeStatePerturbation_extrapol();

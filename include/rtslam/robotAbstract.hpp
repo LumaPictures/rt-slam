@@ -290,7 +290,7 @@ namespace jafar {
 					move();
 				}
 
-				void computeControls(double time1, double time2, jblas::mat & controls, bool release);
+				void computeControls(double time1, double time2, jblas::mat & controls, bool release) const;
 				virtual void move(double time);
 				/**
 				 * Move without changing the state, for extrapolation
@@ -342,9 +342,10 @@ namespace jafar {
 				 * \param _xnew the new state
 				 * \param _XNEW_x the Jacobian of \a _xnew wrt \a _x
 				 * \param _XNEW_pert the Jacobian of \a _xnew wrt \a _n
+				 * \param tempSet the id of the set of temporary variables that must be used (stored in the class)
 				 */
 				virtual void move_func(const vec & _x, const vec & _u, const vec& _n, const double _dt, vec & _xnew,
-				                       mat & _XNEW_x, mat & _XNEW_pert) = 0;
+															 mat & _XNEW_x, mat & _XNEW_pert, unsigned tempSet = 0) const = 0;
 				/**
 				 * Initialize the robot state with the average previous values of control
 				 *
