@@ -239,7 +239,7 @@ class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>
 		CovType covType() { return cov_type; } /// does this hardware sensor return full covariance matrices with data?
 		void initData() {
 			int size = readingSize();
-			for(int i = 0; i < bufferSize; ++i) { buffer[i].resize(size); buffer(i).data(0) = -1.; }
+			for(int i = 0; i < bufferSize; ++i) { buffer[i].resize(size); buffer(i).data(0) = -99.; }
 			reading.resize(size);
 		}
 		/**
