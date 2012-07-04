@@ -116,7 +116,7 @@ namespace hardware {
 	void HardwareSensorCamera::saveTask(void)
 	{ JFR_GLOBAL_TRY
 		
-		int save_index = index();
+		int save_index = 0;
 		int remain = 0, prev_remain = 0;
 		
 		while (!stopping || remain)
