@@ -292,8 +292,9 @@ struct option long_options[] = {
  * Config data
  * ###########################################################################*/
 
-const int slam_priority = -20; // needs to be started as root to be < 0
-const int display_priority = 10;
+const int slam_sched = SCHED_RR;
+const int slam_priority = 5; // >0 is higher priority, needs chown root;chmod u+s or started as root
+const int display_niceness = 10; // >0 is lower priority
 const int display_period = 100; // ms
 
 
@@ -1245,6 +1246,9 @@ JFR_GLOBAL_CATCH
 void demo_slam_main(world_ptr_t *world)
 { JFR_GLOBAL_TRY
 
+	if (!(intOpts[iReplay] & 1))
+		kernel::setCurrentThreadScheduler(slam_sched, slam_priority);
+
 	robot_ptr_t robotPtr;
 		
 	// wait for display to be ready if enabled
@@ -1520,8 +1524,16 @@ JFR_GLOBAL_CATCH
  * Display function
  * ###########################################################################*/
 
+bool demo_slam_display_first = true;
+
 void demo_slam_display(world_ptr_t *world)
 { JFR_GLOBAL_TRY
+
+	if (demo_slam_display_first && !(intOpts[iReplay] & 1))
+	{
+		kernel::setCurrentThreadPriority(display_niceness);
+		demo_slam_display_first = false;
+	}
 
 //	static unsigned prev_t = 0;
 	kernel::Timer timer(display_period*1000);
@@ -1665,11 +1677,14 @@ void demo_slam_exit(world_ptr_t *world, boost::thread *thread_main) {
 
 void demo_slam_run() {
 
+	//kernel::setProcessScheduler(slam_sched, 5); // for whole process, including display thread
+	demo_slam_display_first = true;
+
 	// to start with qt display
 	if (intOpts[iDispQt]) // at least 2d
 	{
 		#ifdef HAVE_MODULE_QDISPLAY
-		qdisplay::QtAppStart((qdisplay::FUNC)&demo_slam_display,display_priority,(qdisplay::FUNC)&demo_slam_main,slam_priority,display_period,&worldPtr,(qdisplay::EXIT_FUNC)&demo_slam_exit);
+		qdisplay::QtAppStart((qdisplay::FUNC)&demo_slam_display,0,(qdisplay::FUNC)&demo_slam_main,0,display_period,&worldPtr,(qdisplay::EXIT_FUNC)&demo_slam_exit);
 		#else
 		std::cout << "Please install qdisplay module if you want 2D display" << std::endl;
 		#endif
@@ -1677,9 +1692,7 @@ void demo_slam_run() {
 	if (intOpts[iDispGdhe]) // only 3d
 	{
 		#ifdef HAVE_MODULE_GDHE
-		kernel::setCurrentThreadPriority(display_priority);
 		boost::thread *thread_disp = new boost::thread(boost::bind(demo_slam_display,&worldPtr));
-		kernel::setCurrentThreadPriority(slam_priority);
 		demo_slam_main(&worldPtr);
 		delete thread_disp;
 		#else
@@ -1687,7 +1700,6 @@ void demo_slam_run() {
 		#endif
 	} else // none
 	{
-		kernel::setCurrentThreadPriority(slam_priority);
 		demo_slam_main(&worldPtr);
 	}
 
@@ -1704,6 +1716,9 @@ void demo_slam_run() {
 #ifndef GENOM
 
 /**
+  * If you want to run with real-time SCHED_RR scheduling policy, you need to start the program
+  * as root or to chown root and chmod u+s it.
+  *
 	* Program options:
 	* --disp-2d=0/1
 	* --disp-3d=0/1
