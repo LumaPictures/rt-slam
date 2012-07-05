@@ -238,9 +238,10 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 			Q_extrapol = jmath::ublasExtra::prod_JPJt(perturbation_extrapol.P(), XNEW_pert_extrapol);
 		}
 
-		void RobotAbstract::computeControls(double time1, double time2, jblas::mat & controls, bool release = true) const
+		bool RobotAbstract::computeControls(double time1, double time2, jblas::mat & controls, bool release = true) const
 		{
 			hardware::HardwareSensorProprioAbstract::VecIndT readings = hardwareEstimatorPtr->getRaws(time1, time2, release);
+			if (readings(readings.size()).data(0) < time2) return false;
 			unsigned data_vsize = readings(0).data.size();
 			jblas::vec u(data_vsize-1), prev_u(data_vsize-1), next_u(data_vsize-1), control_tmp(data_vsize);
 			controls.resize(readings.size()-1, data_vsize, false);
@@ -277,10 +278,12 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 				++j;
 			}
 			if (j < controls.size1()) controls.resize(j, controls.size2(), true); // should very rarely happen
+			return true;
 		}
 
 
-		void RobotAbstract::move(double time){
+		bool RobotAbstract::move(double time)
+		{
 			bool firstmove = false;
 			if (self_time < 0.) { firstmove = true; self_time = time; }
 			if (hardwareEstimatorPtr)
@@ -291,7 +294,7 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 					self_time = 0.;
 					dt_or_dx = 0.;
 					unsigned nreadings = readings.size();
-					if (readings(nreadings-1).data(0) >= time) nreadings--; // because it could be available offline but not online
+					if (readings(nreadings-1).data(0) >= time) nreadings--; // because it could be available offline but not online, so always throw it away it is not useful
 
 					unsigned data_vsize = readings(0).data.size();
 					jblas::vec avg_u(data_vsize-1); avg_u.clear();
@@ -311,7 +314,7 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 				}
 				else // else just move with the available control
 				{
-					computeControls(self_time, time, controls, true);
+					if (!computeControls(self_time, time, controls, true)) return false;
 					for(size_t i = 0; i < controls.size1(); ++i)
 					{
 						dt_or_dx = controls(i,0);
@@ -328,6 +331,7 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 				move();
 			}
 			self_time = time;
+			return true;
 		}
 
 

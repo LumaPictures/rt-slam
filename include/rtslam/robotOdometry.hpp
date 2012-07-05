@@ -88,7 +88,7 @@ namespace jafar {
 				void move_func(const vec & _x, const vec & _u, const vec & _n,
 						const double _dt, vec & _xnew, mat & _XNEW_x, mat & _XNEW_u, unsigned tempSet = 0) const;
 				
-				void move(double time);
+				bool move(double time);
 
 				void init_func(const vec & _x, const vec & _u, vec & _xnew);
 

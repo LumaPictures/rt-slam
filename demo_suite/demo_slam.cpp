@@ -451,6 +451,7 @@ display::ViewerQt *viewerQt = NULL;
 display::ViewerGdhe *viewerGdhe = NULL;
 #endif
 kernel::VariableCondition<int> rawdata_condition(0);
+kernel::VariableCondition<int> estimatordata_condition(0);
 bool ready = false;
 
 
@@ -818,7 +819,7 @@ void demo_slam_init()
 		{
 			// just to initialize the MTI as an external trigger controlling shutter time
 			hardware::HardwareSensorMti hardEst1(
-				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
+				&estimatordata_condition, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
 			floatOpts[fFreq] = hardEst1.getFreq();
 		}
 	}
@@ -1350,7 +1351,27 @@ int n_innovation = 0;
 				
 				robot_ptr_t robPtr = pinfo.sen->robotPtr();
 //std::cout << "Frame " << (*world)->t << " using sen " << pinfo.sen->id() << " at time " << std::setprecision(16) << newt << std::endl;
-				robPtr->move(newt);
+
+				// wait to have all the estimator data (ie one after newt) to do this move,
+				// or it can cause trouble if there are two many missing data,
+				// and it ensures offline repeatability, and quality will be better
+				// TODO be smarter and choose an older data if possible
+				bool waited = false;
+				double wait_time;
+				estimatordata_condition.set(0);
+				while (!robPtr->move(newt))
+				{
+					if (!waited) wait_time = kernel::Clock::getTime();
+					waited = true;
+					estimatordata_condition.wait(boost::lambda::_1 != 0);
+					estimatordata_condition.set(0);
+				}
+				if (waited)
+				{
+					wait_time = kernel::Clock::getTime() - wait_time;
+					if (wait_time > 0.0001) std::cout << "wa(i|s)ted " << wait_time << " for estimator data" << std::endl;
+				}
+
 
 				if (!ready && sensorManager->allInit())
 				{ // here to ensure that at least one move has been done (to init estimator)

@@ -290,8 +290,8 @@ namespace jafar {
 					move();
 				}
 
-				void computeControls(double time1, double time2, jblas::mat & controls, bool release) const;
-				virtual void move(double time);
+				bool computeControls(double time1, double time2, jblas::mat & controls, bool release) const;
+				virtual bool move(double time);
 				/**
 				 * Move without changing the state, for extrapolation
 				 * Thread safe

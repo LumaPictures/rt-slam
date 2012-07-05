@@ -46,7 +46,7 @@ namespace rtslam {
 		{
 			sensor_ptr_t sen;
 			unsigned id;
-			bool no_more_data; // in offline mode, all of the sensors has no more data, so we stop everything
+			bool no_more_data; // in offline mode, all of the sensors have no more data, so we stop everything
 			double date_next; // date of next data arrival
 			ProcessInfo(sensor_ptr_t sen, unsigned id, double date_next): sen(sen), id(id), no_more_data(false), date_next(date_next) {}
 			ProcessInfo(sensor_ptr_t sen, unsigned id): sen(sen), id(id), no_more_data(false), date_next(-1.) {}

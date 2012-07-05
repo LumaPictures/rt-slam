@@ -125,7 +125,7 @@ namespace jafar {
 
 		 Disabled after moving hardware estimators to generic sensor interface
 		 */
-		void RobotOdometry::move(double time){
+		bool RobotOdometry::move(double time){
 #if 0
 			bool firstmove = false;
 			if (self_time < 0.) { firstmove = true; self_time = time; }
@@ -187,6 +187,7 @@ namespace jafar {
 			}
 			self_time = time;
 #endif
+			return true;
 		}
 
 		void RobotOdometry::init_func(const vec & _x, const vec & _u, vec & _xnew) {

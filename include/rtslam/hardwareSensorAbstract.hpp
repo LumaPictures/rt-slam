@@ -274,6 +274,7 @@ typedef boost::shared_ptr<hardware::HardwareSensorProprioAbstract> hardware_sens
 ////////////////////////////////////////////////////////////////////////////////
 // Template implementations
 
+
 template<typename T>
 typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(double t1, double t2, bool release)
 {
@@ -282,7 +283,7 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 	int i1, i2;
 	int i, j;
 
-	// find indexes by dichotomy
+	// find first by dichotomy
 	int i_left = write_pos, i_right = write_pos + bufferSize-1;
 	while(i_left != i_right)
 	{
@@ -291,14 +292,15 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 		if (extractRawTimestamp(buffer(i)) >= t1) i_right = j; else i_left = j+1;
 	}
 	i = i_left % bufferSize;
-	i1 = (i-1 + bufferSize) % bufferSize;
-	if (t1 <= -0.1) i1 = i;
+	i1 = (i-1 + bufferSize) % bufferSize; // get the one before for interpolation
+	if (t1 <= -0.1) i1 = i; // or not if we explicitly asked for the first one
 	bool no_larger = (extractRawTimestamp(buffer(i)) < t1);
 	bool no_smaller = (i == write_pos);
 	if (no_larger && extractRawTimestamp(buffer(i1)) < 0.0)  // no data at all
 		return ublas::project(buffer, jmath::ublasExtra::ia_set(ublas::range(0,0)));
 	if (no_smaller && t1 > 0) JFR_ERROR(RtslamException, RtslamException::BUFFER_OVERFLOW, "Missing data: increase buffer size !");
-	
+
+	// find last by dichotomy
 	if (no_larger)
 		i2 = i1;
 	else
@@ -311,22 +313,21 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 			if (extractRawTimestamp(buffer(i)) >= t2) i_right = j; else i_left = j+1;
 		}
 		i = i_left % bufferSize;
-		i2 = i;
+		i2 = i; // this is already the one after for interpolation, or the last one if there is none after
 	}
-	
-	
+
 	// return mat_indirect
 	if (release) read_pos = i1;
 	l.unlock();
-	cond_offline_freed.notify_all();
+	if (release) cond_offline_freed.notify_all();
 
-	if (i1 < i2)
+	if (i1 <= i2)
 	{
-		return ublas::project(buffer, 
+		return ublas::project(buffer,
 			jmath::ublasExtra::ia_set(ublas::range(i1,i2+1)));
 	} else
 	{
-		return ublas::project(buffer, 
+		return ublas::project(buffer,
 			jmath::ublasExtra::ia_concat(jmath::ublasExtra::ia_set(ublas::range(i1,buffer.size())),
 			                             jmath::ublasExtra::ia_set(ublas::range(0,i2+1))));
 	}
