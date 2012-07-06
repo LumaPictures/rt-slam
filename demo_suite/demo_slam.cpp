@@ -819,7 +819,7 @@ void demo_slam_init()
 		{
 			// just to initialize the MTI as an external trigger controlling shutter time
 			hardware::HardwareSensorMti hardEst1(
-				&estimatordata_condition, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
+				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
 			floatOpts[fFreq] = hardEst1.getFreq();
 		}
 	}
@@ -863,7 +863,7 @@ void demo_slam_init()
 */		} else
 		{
 			boost::shared_ptr<hardware::HardwareSensorMti> hardEst1_(new hardware::HardwareSensorMti(
-				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
+				&estimatordata_condition, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
 			if (intOpts[iTrigger] != 0) floatOpts[fFreq] = hardEst1_->getFreq();
 			hardEst1_->setSyncConfig(configSetup.IMU_TIMESTAMP_CORRECTION);
 			//hardEst1_->setUseForInit(true);
@@ -1369,7 +1369,7 @@ int n_innovation = 0;
 				if (waited)
 				{
 					wait_time = kernel::Clock::getTime() - wait_time;
-					if (wait_time > 0.0001) std::cout << "wa(i|s)ted " << wait_time << " for estimator data" << std::endl;
+					if (wait_time > 0.001) std::cout << "wa(i|s)ted " << wait_time << " for estimator data" << std::endl;
 				}
 
 

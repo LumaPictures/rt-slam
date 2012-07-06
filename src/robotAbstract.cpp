@@ -241,7 +241,7 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 		bool RobotAbstract::computeControls(double time1, double time2, jblas::mat & controls, bool release = true) const
 		{
 			hardware::HardwareSensorProprioAbstract::VecIndT readings = hardwareEstimatorPtr->getRaws(time1, time2, release);
-			if (readings(readings.size()).data(0) < time2) return false;
+			if (readings.size() < 2 || readings(readings.size()-1).data(0) < time2) return false;
 			unsigned data_vsize = readings(0).data.size();
 			jblas::vec u(data_vsize-1), prev_u(data_vsize-1), next_u(data_vsize-1), control_tmp(data_vsize);
 			controls.resize(readings.size()-1, data_vsize, false);
@@ -284,17 +284,15 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 
 		bool RobotAbstract::move(double time)
 		{
-			bool firstmove = false;
-			if (self_time < 0.) { firstmove = true; self_time = time; }
 			if (hardwareEstimatorPtr)
 			{
-				if (firstmove) // compute average past control and allow the robot to init its state with it
+				if (self_time < 0.) // first move, compute average past control and allow the robot to init its state with it
 				{
 					hardware::HardwareSensorProprioAbstract::VecIndT readings = hardwareEstimatorPtr->getRaws(-1., time);
 					self_time = 0.;
 					dt_or_dx = 0.;
 					unsigned nreadings = readings.size();
-					if (readings(nreadings-1).data(0) >= time) nreadings--; // because it could be available offline but not online, so always throw it away it is not useful
+					if (nreadings < 1 || readings(nreadings-1).data(0) < time) return false;
 
 					unsigned data_vsize = readings(0).data.size();
 					jblas::vec avg_u(data_vsize-1); avg_u.clear();
@@ -325,6 +323,7 @@ std::cout << "setInitialOrientation " << ori_euler << " std " << oriStd_euler <<
 				}
 			} else
 			{
+				if (self_time < 0.) self_time = time;
 				dt_or_dx = time - self_time;
 				perturbation.set_from_continuous(dt_or_dx);
 				control.clear();
