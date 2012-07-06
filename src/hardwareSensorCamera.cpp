@@ -115,7 +115,8 @@ namespace hardware {
 	
 	void HardwareSensorCamera::saveTask(void)
 	{ JFR_GLOBAL_TRY
-		
+		const int warning_queue_size = 100;
+
 		int save_index = 0;
 		int remain = 0, prev_remain = 0;
 		
@@ -134,9 +135,10 @@ namespace hardware {
 			std::fstream f; f.open((oss.str() + std::string(".time")).c_str(), std::ios_base::out); 
 			f << std::setprecision(20) << image->timestamp << std::endl; f.close();
 			
-			if (remain > prev_remain || (remain == 0 && prev_remain != 0))
-				std::cout << save_index << ": " << remain << " in queue." << std::endl;
-			prev_remain = remain;
+			bool remain_cut = (remain > warning_queue_size ? remain : 0);
+			if (remain_cut > prev_remain || (remain_cut == 0 && prev_remain != 0))
+				std::cout << "HardwareSensorCamera::saveTask " << remain << " images in queue." << std::endl;
+			prev_remain = remain_cut;
 			
 			++save_index;
 		}
