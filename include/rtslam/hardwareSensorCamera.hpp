@@ -51,21 +51,15 @@ class HardwareSensorCamera: public HardwareSensorExteroAbstract
 		void preloadTaskOffline(void);
 		boost::thread *savePushTask_thread;
 		void savePushTask(void);
-		kernel::VariableCondition<size_t> saveTask_cond;
-		boost::thread *saveTask_thread;
-		void saveTask(void);
-	
+		kernel::LoggerTask *loggerTask;
 	
 		void init(std::string dump_path, cv::Size imgSize);
 		virtual void start();
 		virtual void stop();
 	public:
 		
-		/**
-		Same as before but assumes that mode=2, and doesn't need a camera
-		*/
 		HardwareSensorCamera(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path = ".");
-		HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize);
+		HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize, kernel::LoggerTask *loggerTask);
 
 		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
 		double getFreq() { return realFreq; }

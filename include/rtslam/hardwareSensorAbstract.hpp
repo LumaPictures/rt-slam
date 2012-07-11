@@ -13,6 +13,7 @@
 #define HARDWARE_SENSOR_HPP_
 
 #include "kernel/threads.hpp"
+#include "kernel/dataLog.hpp"
 
 #include "jmath/indirectArray.hpp"
 
@@ -266,6 +267,22 @@ class HardwareSensorExteroAbstract: public HardwareSensorAbstract<raw_ptr_t>
 
 typedef boost::shared_ptr<hardware::HardwareSensorExteroAbstract> hardware_sensorext_ptr_t;
 typedef boost::shared_ptr<hardware::HardwareSensorProprioAbstract> hardware_sensorprop_ptr_t;
+
+
+class LoggableProprio: public kernel::Loggable
+{
+ private:
+	std::fstream &f;
+	jblas::vec data;
+
+ public:
+	LoggableProprio(std::fstream &f, jblas::vec & data): f(f), data(data) {}
+	virtual void log()
+	{
+		// we put the maximum precision because we want repeatability with the original run
+		f << std::setprecision(50) << data << std::endl;
+	}
+};
 
 
 

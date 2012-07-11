@@ -168,26 +168,24 @@ namespace hardware {
 			}
 
 			
-			int buff_write = getWritePos();
+			int buff_write = getWritePos(true); // don't need to lock because we are the only writer
 			buffer(buff_write).data = reading.data;
 			buffer(buff_write).data(0) += timestamps_correction;
 			last_timestamp = reading.data(0);
 			incWritePos();
 			
 			if (mode == 1)
-			{
-				// we put the maximum precision because we want repeatability with the original run
-				f << std::setprecision(50) << datavec << std::endl;
-			}
+				loggerTask->push(new LoggableProprio(f, datavec));
 			
 		}
 		JFR_GLOBAL_CATCH
 	}
 	
 	
-	HardwareSensorExternalLoc::HardwareSensorExternalLoc(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path):
-		HardwareSensorProprioAbstract(condition, bufferSize, ctFull), mode(mode), dump_path(dump_path)
+	HardwareSensorExternalLoc::HardwareSensorExternalLoc(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode, std::string dump_path, kernel::LoggerTask *loggerTask):
+		HardwareSensorProprioAbstract(condition, bufferSize, ctFull), mode(mode), dump_path(dump_path), loggerTask(loggerTask)
 	{
+		if (mode == 1 && !loggerTask) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "HardwareSensorExternalLoc: you must provide a loggerTask if you want to dump data.");
 		addQuantity(qBundleobs);
 		initData();
 

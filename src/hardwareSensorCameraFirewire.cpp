@@ -193,7 +193,7 @@ namespace hardware {
 		{
 			// acquire the image
 #ifdef HAVE_VIAM
-			int buff_write = getWritePos();
+			int buff_write = getWritePos(true); // don't need to lock because we are the only writer
 			//if (!emptied_buffers) date = kernel::Clock::getTime();
 			r = viam_oneshot(handle, bank, &(bufferImage[buff_write]), &pts, 1);
 			if (r) continue;
@@ -294,9 +294,11 @@ namespace hardware {
 		init(mode, dump_path, viamSize_to_size(viam_format.hwmode.size));
 	}
 
-	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, int format, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode, std::string dump_path):
-		HardwareSensorCamera(condition, bufferSize)
+	HardwareSensorCameraFirewire::HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id,
+		cv::Size size, int format, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode, std::string dump_path, kernel::LoggerTask *loggerTask):
+		HardwareSensorCamera(condition, bufferSize, loggerTask)
 	{
+		if (mode == 1 && !loggerTask) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "HardwareSensorCameraFirewire: you must provide a loggerTask if you want to dump data.");
 		ViamFormat viam_format;
 		format_to_viamFormat(size, format, crop, freq, trigger, viam_format);
 		realFreq = viamFreq_to_freq(viam_format.hwmode.fps);
@@ -311,7 +313,6 @@ namespace hardware {
 #ifdef HAVE_VIAM
 		if (mode == 0 || mode == 1)
 			viam_release(handle);
-		saveTask_cond.wait(boost::lambda::_1 == 0);
 #endif
 	}
 

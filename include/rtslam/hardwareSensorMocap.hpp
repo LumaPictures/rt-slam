@@ -33,9 +33,10 @@ class HardwareSensorMocap: public HardwareSensorProprioAbstract
 		int mode;
 		std::string dump_path;
 		double last_timestamp;
+		kernel::LoggerTask *loggerTask;
 		
 	public:
-		HardwareSensorMocap(kernel::VariableCondition<int> *condition, unsigned bufferSize, int mode = 0, std::string dump_path = ".");
+		HardwareSensorMocap(kernel::VariableCondition<int> *condition, unsigned bufferSize, int mode = 0, std::string dump_path = ".", kernel::LoggerTask *loggerTask = NULL);
 		
 		virtual void start();
 		virtual void stop();

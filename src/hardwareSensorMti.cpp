@@ -65,17 +65,15 @@ namespace hardware {
 				arrival_delay = reading.arrival - reading.data(0);
 #endif
 			}
-			int buff_write = getWritePos();
+			int buff_write = getWritePos(true); // don't need to lock because we are the only writer
 			buffer(buff_write).data = reading.data;
 			buffer(buff_write).data(0) += timestamps_correction;
 			incWritePos();
 			if (condition) condition->setAndNotify(1);
 			
 			if (mode == 1)
-			{
-				// we put the maximum precision because we want repeatability with the original run
-				f << std::setprecision(50) << reading.data << std::endl;
-			}
+				loggerTask->push(new LoggableProprio(f, reading.data));
+
 		}
 		
 		if (mode == 1 || mode == 2)
@@ -84,13 +82,15 @@ namespace hardware {
 		JFR_GLOBAL_CATCH
 	}
 
-	HardwareSensorMti::HardwareSensorMti(kernel::VariableCondition<int> *condition, std::string device, double trigger_mode, double trigger_freq, double trigger_shutter, int bufferSize_, int mode, std::string dump_path):
+	HardwareSensorMti::HardwareSensorMti(kernel::VariableCondition<int> *condition, std::string device, double trigger_mode,
+		double trigger_freq, double trigger_shutter, int bufferSize_, int mode, std::string dump_path, kernel::LoggerTask *loggerTask):
 		HardwareSensorProprioAbstract(condition, bufferSize_, ctNone),
 #ifdef HAVE_MTI
 		mti(NULL),
 #endif
-		/*tightly_synchronized(false), */ mode(mode), dump_path(dump_path)
+		/*tightly_synchronized(false), */ mode(mode), dump_path(dump_path), loggerTask(loggerTask)
 	{
+		if (mode == 1 && !loggerTask) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "HardwareSensorMti: you must provide a loggerTask if you want to dump data.");
 		addQuantity(qAcc);
 		addQuantity(qAngVel);
 		addQuantity(qMag);

@@ -44,6 +44,7 @@ namespace hardware {
 			std::string dump_path;
 			double realFreq;
 			double last_timestamp;
+			kernel::LoggerTask *loggerTask;
 
 			boost::thread *preloadTask_thread;
 			void preloadTask(void);
@@ -51,7 +52,7 @@ namespace hardware {
 		public:
 			
 			HardwareSensorMti(kernel::VariableCondition<int> *condition, std::string device, double trigger_mode,
-				double trigger_freq, double trigger_shutter, int bufferSize_, int mode = 0, std::string dump_path = ".");
+				double trigger_freq, double trigger_shutter, int bufferSize_, int mode = 0, std::string dump_path = ".", kernel::LoggerTask *loggerTask = NULL);
 			~HardwareSensorMti();
 			virtual void start();
 			virtual void stop();

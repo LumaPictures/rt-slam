@@ -82,7 +82,8 @@ class HardwareSensorCameraFirewire: public HardwareSensorCamera
 		@param mode 0 = normal, 1 = dump used images, 2 = from dumped images
 		@param dump_path the path where the images are saved/read... Use a ram disk !!!
 		*/
-		HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, int format, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode = 0, std::string dump_path = ".");
+		HardwareSensorCameraFirewire(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id,
+			cv::Size size, int format, viam_hwcrop_t crop, double freq, int trigger, double shutter, int mode = 0, std::string dump_path = ".", kernel::LoggerTask *loggerTask = NULL);
 #endif
 		/**
 		Same as before but assumes that mode=2, and doesn't need a camera

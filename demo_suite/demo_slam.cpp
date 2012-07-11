@@ -293,8 +293,8 @@ struct option long_options[] = {
  * ###########################################################################*/
 
 const int slam_sched = SCHED_RR;
-const int slam_priority = 5; // >0 is higher priority, needs chown root;chmod u+s or started as root
-const int display_niceness = 10; // >0 is lower priority
+const int slam_priority = 30; // >0 is higher priority (1;99), needs chown root;chmod u+s or started as root
+const int display_niceness = 10; // >0 is lower priority (-20;+20)
 const int display_period = 100; // ms
 
 
@@ -441,6 +441,7 @@ class ConfigEstimation: public kernel::KeyValueFileSaveLoad
  * ###########################################################################*/
 
 world_ptr_t worldPtr;
+boost::scoped_ptr<kernel::LoggerTask> loggerTask;
 boost::scoped_ptr<kernel::DataLogger> dataLogger;
 sensor_manager_ptr_t sensorManager;
 boost::shared_ptr<ExporterAbstract> exporter;
@@ -563,9 +564,13 @@ void demo_slam_init()
 		distortion = configSetup.DISTORTION;
 	}
 	
+	if ((!strOpts[sLog].empty() || intOpts[iDump]) && !(intOpts[iReplay] & 1))
+		loggerTask.reset(new kernel::LoggerTask(display_niceness));
+
 	if (!strOpts[sLog].empty())
 	{
 		dataLogger.reset(new kernel::DataLogger(strOpts[sDataPath] + "/" + strOpts[sLog]));
+		dataLogger->setLoggerTask(loggerTask.get());
 		dataLogger->writeCurrentDate();
 		dataLogger->writeNewLine();
 
@@ -819,7 +824,7 @@ void demo_slam_init()
 		{
 			// just to initialize the MTI as an external trigger controlling shutter time
 			hardware::HardwareSensorMti hardEst1(
-				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
+				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath], loggerTask.get());
 			floatOpts[fFreq] = hardEst1.getFreq();
 		}
 	}
@@ -863,7 +868,7 @@ void demo_slam_init()
 */		} else
 		{
 			boost::shared_ptr<hardware::HardwareSensorMti> hardEst1_(new hardware::HardwareSensorMti(
-				&estimatordata_condition, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
+				&estimatordata_condition, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath], loggerTask.get()));
 			if (intOpts[iTrigger] != 0) floatOpts[fFreq] = hardEst1_->getFreq();
 			hardEst1_->setSyncConfig(configSetup.IMU_TIMESTAMP_CORRECTION);
 			//hardEst1_->setUseForInit(true);
@@ -1125,9 +1130,9 @@ void demo_slam_init()
 					case 1: crop = VIAM_HW_CROP; break;
 					default: crop = VIAM_HW_FIXED; break;
 				}
-				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, 200,
+				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, 500,
 					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), configSetup.CAMERA_FORMAT, crop, floatOpts[fFreq], intOpts[iTrigger],
-					floatOpts[fShutter], mode, strOpts[sDataPath]));
+					floatOpts[fShutter], mode, strOpts[sDataPath], loggerTask.get()));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
 				senPtr11->setHardwareSensor(hardSen11);
 				#else
@@ -1143,9 +1148,9 @@ void demo_slam_init()
 			} else if (configSetup.CAMERA_TYPE == 3)
 			{ // UEYE
 				#ifdef HAVE_UEYE
-				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, 200,
+				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, 500,
 					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), floatOpts[fFreq], intOpts[iTrigger],
-					floatOpts[fShutter], mode, strOpts[sDataPath]));
+					floatOpts[fShutter], mode, strOpts[sDataPath], loggerTask.get()));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
 				senPtr11->setHardwareSensor(hardSen11);
 				#else
@@ -1174,13 +1179,13 @@ void demo_slam_init()
 		switch (intOpts[iGps])
 		{
 			case 1:
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath], loggerTask.get()));
 				break;
 			case 2:
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath], loggerTask.get())); // TODO ask to ignore vel
 				break;
 			case 3:
-				hardGps.reset(new hardware::HardwareSensorMocap(&rawdata_condition, 200, mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorMocap(&rawdata_condition, 200, mode, strOpts[sDataPath], loggerTask.get()));
 				init = false;
 				break;
 		}
@@ -1369,7 +1374,7 @@ int n_innovation = 0;
 				if (waited)
 				{
 					wait_time = kernel::Clock::getTime() - wait_time;
-					if (wait_time > 0.001) std::cout << "wa(i|s)ted " << wait_time << " for estimator data" << std::endl;
+					/*if (wait_time > 0.001)*/ std::cout << "wa(i|s)ted " << wait_time << " for estimator data" << std::endl;
 				}
 
 
@@ -1532,6 +1537,8 @@ int n_innovation = 0;
 			(*senIter)->stop();
 		}
 	}
+
+	if (loggerTask) loggerTask->stop(true);
 
 //	std::cout << "\nFINISHED ! Press a key to terminate." << std::endl;
 //	getchar();
