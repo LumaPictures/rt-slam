@@ -245,6 +245,8 @@ namespace hardware {
 		// configure camera
 		if (mode == 0 || mode == 1)
 		{
+			if (viam_format.hwmode.trigger == VIAM_HWTRIGGER_MODE1_HIGH && shutter < 1e-6) viam_format.hwmode.trigger = VIAM_HWTRIGGER_MODE0_HIGH;
+
 			int r;
 			handle = viam_init();
 			viam_camera_t camera = viam_camera_create(handle, camera_id.c_str(), "camera1");
@@ -275,7 +277,6 @@ namespace hardware {
 				if (r) std::cerr << "viam_filter_push failed with error " << r << std::endl;
 			}
 
-			if (viam_format.hwmode.trigger == VIAM_HWTRIGGER_MODE1_HIGH && shutter < 1e-6) viam_format.hwmode.trigger = VIAM_HWTRIGGER_MODE0_HIGH;
 			if (viam_format.hwmode.trigger != VIAM_HWTRIGGER_MODE1_HIGH)
 			{ 
 				viam_filter_t shutter_filter = viam_filter_luminance_create(handle, "shutter", VIAM_FILTER_SHUTTER, VIAM_VALUE_ABSOLUTE, shutter);
