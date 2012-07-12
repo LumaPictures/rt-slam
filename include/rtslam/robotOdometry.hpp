@@ -86,9 +86,9 @@ namespace jafar {
 				 * \param _XNEW_pert the Jacobian of xnew wrt u
 				 */
 				void move_func(const vec & _x, const vec & _u, const vec & _n,
-				    const double _dt, vec & _xnew, mat & _XNEW_x, mat & _XNEW_u);
+						const double _dt, vec & _xnew, mat & _XNEW_x, mat & _XNEW_u, unsigned tempSet = 0) const;
 				
-				void move(double time);
+				bool move(double time);
 
 				void init_func(const vec & _x, const vec & _u, vec & _xnew);
 
@@ -127,7 +127,7 @@ namespace jafar {
 				 * \param q the quaternion
 				 */
 				template<class Vx, class Vp, class Vq>
-				inline void splitState(const Vx x, Vp & p, Vq & q) {
+				inline void splitState(const Vx x, Vp & p, Vq & q) const {
 					p = ublas::subrange(x, 0, 3);
 					q = ublas::subrange(x, 3, 7);
 				}
@@ -141,7 +141,7 @@ namespace jafar {
 				 * \param x the state vector
 				 */
 				template<class Vp, class Vq, class Vx>
-				inline void unsplitState(const Vp & p, const Vq & q, Vx & x) {
+				inline void unsplitState(const Vp & p, const Vq & q, Vx & x) const {
 					ublas::subrange(x, 0, 3) = p;
 					ublas::subrange(x, 3, 7) = q;
 				}
@@ -154,18 +154,22 @@ namespace jafar {
 				 * \param dv the orientation increment.
 				 */
 				template<class Vu, class V>
-				inline void splitControl(Vu & u, V & dx, V & dv) {
+				inline void splitControl(Vu & u, V & dx, V & dv) const {
 					dx = project(u, ublas::range(0, 3));
 					dv = project(u, ublas::range(3, 6));
 				}
 
 			private:
 				// temporary matrices to speed up Jacobian computation
-				mat33 PNEW_dx;	///<	Temporary Jacobian matrix
-				mat43 QDV_dv;	///<	Temporary Jacobian matrix
-				mat44 QNEW_qdv; ///<	Temporary Jacobian matrix
-				mat43 QNEW_dv;	///<	Temporary Jacobian matrix
-				mat44 QNEW_q;	///<	Temporary Jacobian matrix
+				struct TempVariables
+				{
+					mat33 PNEW_dx;	///<	Temporary Jacobian matrix
+					mat43 QDV_dv;	///<	Temporary Jacobian matrix
+					mat44 QNEW_qdv; ///<	Temporary Jacobian matrix
+					mat43 QNEW_dv;	///<	Temporary Jacobian matrix
+					mat44 QNEW_q;	///<	Temporary Jacobian matrix
+				};
+				mutable TempVariables tempvars0, tempvars1;
 		};
 	}
 }

@@ -42,11 +42,13 @@ class HardwareSensorExternalLoc: public HardwareSensorProprioAbstract
 		int mode;
 		std::string dump_path;
 		double last_timestamp;
-		
+		kernel::LoggerTask *loggerTask;
+
 	public:
-		HardwareSensorExternalLoc(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode = 0, std::string dump_path = ".");
+		HardwareSensorExternalLoc(kernel::VariableCondition<int> *condition, unsigned bufferSize, const std::string machine, int mode = 0, std::string dump_path = ".", kernel::LoggerTask *loggerTask = NULL);
 		
 		virtual void start();
+		virtual void stop();
 		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
 		
 };

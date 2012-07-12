@@ -277,8 +277,6 @@ const int nFirstBreakingOpt = nIntOpts+nFloatOpts+nStrOpts, nLastBreakingOpt = n
 
 /// !!WARNING!! be careful that options are in the same order above and below
 
-#ifndef GENOM
-
 struct option long_options[] = {
 	// int options
 	{"disp-2d", 2, 0, 0},
@@ -316,17 +314,15 @@ struct option long_options[] = {
 	{"usage",0,0,0},
 };
 
-#endif
-
 /** ############################################################################
  * #############################################################################
  * Config data
  * ###########################################################################*/
 
-const int slam_priority = -20; // needs to be started as root to be < 0
-const int display_priority = 10;
+const int slam_sched = SCHED_RR;
+const int slam_priority = 30; // >0 is higher priority (1;99), needs chown root;chmod u+s or started as root
+const int display_niceness = 10; // >0 is lower priority (-20;+20)
 const int display_period = 100; // ms
-const unsigned N_FRAMES = 500000;
 const double UNSET_FREQ = -1.0;
 const double DEFAULT_FREQ = 60.0;
 
@@ -335,12 +331,13 @@ class ConfigSetup: public kernel::KeyValueFileSaveLoad
 {
  public:
 	/// SENSOR
-	jblas::vec6 SENSOR_POSE_CONSTVEL; /// camera pose in constant velocity (x,y,z,roll,pitch,yaw) (m,deg)
-	jblas::vec6 SENSOR_POSE_INERTIAL; /// camera pose in inertial (x,y,z,roll,pitch,yaw) (m,deg)
-	jblas::vec6 GPS_POSE; /// GPS pose (x,y,z,roll,pitch,yaw) (m,deg)
-	jblas::vec6 ROBOT_POSE; /// the transformation between the slam robot (the main sensor, camera or imu) and the real robot = pose of the real robot in the slam robot frame, just like the other sensors
+	jblas::vec6 SENSOR_POSE_CONSTVEL; /// camera pose in SLAM frame for constant velocity (x,y,z,roll,pitch,yaw) (m,deg)
+	jblas::vec6 SENSOR_POSE_INERTIAL; /// camera pose in SLAM frame (IMU frame) for inertial (x,y,z,roll,pitch,yaw) (m,deg)
+	jblas::vec6 GPS_POSE; /// GPS pose in SLAM frame (IMU frame in inertial) (x,y,z,roll,pitch,yaw) (m,deg)
+	jblas::vec6 ROBOT_POSE; /// real robot pose in SLAM frame (IMU frame in inertial) (for init and export)
 
 	unsigned CAMERA_TYPE;      /// camera type (0 = firewire, 1 = firewire format7, 2 = USB, 3 = UEYE)
+	unsigned CAMERA_FORMAT;    /// camera image format (0: GRAY8, 10: RGB24, 20: YUV411, 21: YUV422_UYVY, 22: YUV422_YUYV, 23: YUV422_YYUV, 24: YVU422_VYUY, 25: YVU422_YVYU, 26: YUV444, 30: BAYER_BGGR, 31: BAYER_GRBG, 32: BAYER_RGGB, 33: BAYER_GBRG)
 	std::string CAMERA_DEVICE; /// camera device (firewire ID or device)
 	unsigned IMG_WIDTH;        /// image width
 	unsigned IMG_HEIGHT;       /// image height
@@ -375,7 +372,7 @@ class ConfigSetup: public kernel::KeyValueFileSaveLoad
 	double PERT_RANWALKACC;  /// IMU a_bias random walk (m/s2 per sqrt(s))
 	double PERT_RANWALKGYRO; /// IMU w_bias random walk (rad/s per sqrt(s))
 
-	double UNCERT_HEADING;   /// initial heading uncertainty
+	double UNCERT_HEADING;   /// initial heading uncertainty of the real robot
 	double UNCERT_ATTITUDE;   /// initial attitude angles uncertainty
 	
 	double IMU_TIMESTAMP_CORRECTION; /// correction to add to the IMU timestamp for synchronization (s)
@@ -477,6 +474,7 @@ class ConfigEstimation: public kernel::KeyValueFileSaveLoad
  * ###########################################################################*/
 
 world_ptr_t worldPtr;
+boost::scoped_ptr<kernel::LoggerTask> loggerTask;
 boost::scoped_ptr<kernel::DataLogger> dataLogger;
 sensor_manager_ptr_t sensorManager;
 boost::shared_ptr<ExporterAbstract> exporter;
@@ -489,13 +487,18 @@ display::ViewerGdhe *viewerGdhe = NULL;
 #ifdef HAVE_DISP_OSG
 display::ViewerOsg *viewerOsg = NULL;
 #endif
-
-
 kernel::VariableCondition<int> rawdata_condition(0);
+kernel::VariableCondition<int> estimatordata_condition(0);
+bool ready = false;
+
+
 
 
 void demo_slam_init()
-{ try {
+{ JFR_GLOBAL_TRY
+
+	ready = false;
+
 	// preprocess options
 	if (intOpts[iReplay] & 1) mode = 2; else
 		if (intOpts[iDump]) mode = 1; else
@@ -648,6 +651,9 @@ void demo_slam_init()
 		distortion = configSetup.DISTORTION;
 	}
 	
+	if ((!strOpts[sLog].empty() || intOpts[iDump]) && !(intOpts[iReplay] & 1))
+		loggerTask.reset(new kernel::LoggerTask(display_niceness));
+
 	if (!strOpts[sLog].empty())
 	{
 		std::string logPath = strOpts[sLog];
@@ -657,10 +663,10 @@ void demo_slam_init()
 			logPath = strOpts[sDataPath] + "/" + logPath;
 
 		dataLogger.reset(new kernel::DataLogger(logPath));
+		dataLogger->setLoggerTask(loggerTask.get());
 		dataLogger->writeCurrentDate();
 		dataLogger->writeNewLine();
-#ifndef GENOM
-// FIXME do it for genom
+
 		// write options to log
 		std::ostringstream oss;
 		for(int i = 0; i < nIntOpts; ++i)
@@ -670,7 +676,6 @@ void demo_slam_init()
 		for(int i = 0; i < nStrOpts; ++i)
 			{ oss << long_options[i+nFirstStrOpt].name << " = " << strOpts[i]; dataLogger->writeComment(oss.str()); oss.str(""); }
 		dataLogger->writeNewLine();
-#endif
 	}
 
 	switch (intOpts[iVerbose])
@@ -915,7 +920,7 @@ void demo_slam_init()
 		{
 			// just to initialize the MTI as an external trigger controlling shutter time
 			hardware::HardwareSensorMti hardEst1(
-				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath]);
+				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1, mode, strOpts[sDataPath], loggerTask.get());
 			floatOpts[fFreq] = hardEst1.getFreq();
 		}
 	}
@@ -959,7 +964,7 @@ void demo_slam_init()
 */		} else
 		{
 			boost::shared_ptr<hardware::HardwareSensorMti> hardEst1_(new hardware::HardwareSensorMti(
-				NULL, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath]));
+				&estimatordata_condition, configSetup.MTI_DEVICE, intOpts[iTrigger], floatOpts[fFreq], floatOpts[fShutter], 1024, mode, strOpts[sDataPath], loggerTask.get()));
 			if (intOpts[iTrigger] != 0) floatOpts[fFreq] = hardEst1_->getFreq();
 			hardEst1_->setSyncConfig(configSetup.IMU_TIMESTAMP_CORRECTION);
 			//hardEst1_->setUseForInit(true);
@@ -995,10 +1000,9 @@ void demo_slam_init()
 	}
 
 	robPtr1->linkToParentMap(mapPtr);
-	robPtr1->pose.x(quaternion::originFrame());
-	robPtr1->setPoseStd(0,0,0, 0,0,floatOpts[fHeading], 
-	                    0,0,0, configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_HEADING);
-	robPtr1->robot_pose = configSetup.ROBOT_POSE;
+	robPtr1->setRobotPose(configSetup.ROBOT_POSE, true);
+	robPtr1->setOrientationStd(0,0,floatOpts[fHeading],
+		configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_ATTITUDE,configSetup.UNCERT_HEADING);
 	if (dataLogger) dataLogger->addLoggable(*robPtr1.get());
 
 	if (intOpts[iSimu] != 0)
@@ -1222,9 +1226,9 @@ void demo_slam_init()
 					case 1: crop = VIAM_HW_CROP; break;
 					default: crop = VIAM_HW_FIXED; break;
 				}
-				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, 200,
-					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), 0, 8, crop, floatOpts[fFreq], intOpts[iTrigger],
-					floatOpts[fShutter], mode, strOpts[sDataPath]));
+				hardware::hardware_sensor_firewire_ptr_t hardSen11(new hardware::HardwareSensorCameraFirewire(&rawdata_condition, 500,
+					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), configSetup.CAMERA_FORMAT, crop, floatOpts[fFreq], intOpts[iTrigger],
+					floatOpts[fShutter], mode, strOpts[sDataPath], loggerTask.get()));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
 				senPtr11->setHardwareSensor(hardSen11);
 				#else
@@ -1240,9 +1244,9 @@ void demo_slam_init()
 			} else if (configSetup.CAMERA_TYPE == 3)
 			{ // UEYE
 				#ifdef HAVE_UEYE
-				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, 200,
+				hardware::hardware_sensor_ueye_ptr_t hardSen11(new hardware::HardwareSensorCameraUeye(&rawdata_condition, 500,
 					configSetup.CAMERA_DEVICE, cv::Size(img_width,img_height), floatOpts[fFreq], intOpts[iTrigger],
-					floatOpts[fShutter], mode, strOpts[sDataPath]));
+					floatOpts[fShutter], mode, strOpts[sDataPath], loggerTask.get()));
 				hardSen11->setTimingInfos(1.0/hardSen11->getFreq(), 1.0/hardSen11->getFreq());
 				senPtr11->setHardwareSensor(hardSen11);
 				#else
@@ -1263,7 +1267,7 @@ void demo_slam_init()
 
 	if (intOpts[iGps])
 	{
-		absloc_ptr_t senPtr13(new SensorAbsloc(robPtr1, MapObject::UNFILTERED, false));
+		absloc_ptr_t senPtr13(new SensorAbsloc(robPtr1, MapObject::UNFILTERED));
 		senPtr13->setId();
 		senPtr13->linkToParentRobot(robPtr1);
 		hardware::hardware_sensorprop_ptr_t hardGps;
@@ -1272,17 +1276,17 @@ void demo_slam_init()
 		{
 			case 1:
 			{
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath], loggerTask.get()));
 				break;
 			}
 			case 2:
 			{
-				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath])); // TODO ask to ignore vel
+				hardGps.reset(new hardware::HardwareSensorGpsGenom(&rawdata_condition, 200, "mana-base", mode, strOpts[sDataPath], loggerTask.get())); // TODO ask to ignore vel
 				break;
 			}
 			case 3:
 			{
-				hardGps.reset(new hardware::HardwareSensorMocap(&rawdata_condition, 200, mode, strOpts[sDataPath]));
+				hardGps.reset(new hardware::HardwareSensorMocap(&rawdata_condition, 200, mode, strOpts[sDataPath], loggerTask.get()));
 				init = false;
 				break;
 			}
@@ -1347,13 +1351,18 @@ void demo_slam_init()
 		case 2: exporter.reset(new ExporterPoster(robPtr1)); break;
 	}
 
-} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } } // demo_slam_init
+JFR_GLOBAL_CATCH
+} // demo_slam_init
+
 
 
 
 
 void demo_slam_main(world_ptr_t *world)
-{ try {
+{ JFR_GLOBAL_TRY
+
+	if (!(intOpts[iReplay] & 1))
+		kernel::setCurrentThreadScheduler(slam_sched, slam_priority);
 
 	robot_ptr_t robotPtr;
 		
@@ -1435,10 +1444,8 @@ int n_innovation = 0;
 	//if (dataLogger) dataLogger->log();
 	kernel::Chrono chrono;
 
-	for (; (*world)->t <= N_FRAMES;)
+	while (!(*world)->exit())
 	{
-		if ((*world)->exit()) break;
-		
 		bool had_data = false;
 		// If they've requested periodic progress messages...
 		if (intOpts[iProgress])
@@ -1469,7 +1476,33 @@ int n_innovation = 0;
 				
 				robot_ptr_t robPtr = pinfo.sen->robotPtr();
 //std::cout << "Frame " << (*world)->t << " using sen " << pinfo.sen->id() << " at time " << std::setprecision(16) << newt << std::endl;
-				robPtr->move(newt);
+
+				// wait to have all the estimator data (ie one after newt) to do this move,
+				// or it can cause trouble if there are two many missing data,
+				// and it ensures offline repeatability, and quality will be better
+				// TODO be smarter and choose an older data if possible
+				bool waited = false;
+				double wait_time;
+				estimatordata_condition.set(0);
+				while (!robPtr->move(newt))
+				{
+					if (!waited) wait_time = kernel::Clock::getTime();
+					waited = true;
+					estimatordata_condition.wait(boost::lambda::_1 != 0);
+					estimatordata_condition.set(0);
+				}
+				if (waited)
+				{
+					wait_time = kernel::Clock::getTime() - wait_time;
+					/*if (wait_time > 0.001)*/ std::cout << "wa(i|s)ted " << wait_time << " for estimator data" << std::endl;
+				}
+
+
+				if (!ready && sensorManager->allInit())
+				{ // here to ensure that at least one move has been done (to init estimator)
+					robPtr->reinit_extrapolate();
+					ready = true;
+				}
 				
 				JFR_DEBUG("Robot " << robPtr->id() << " state after move " << robPtr->state.x() << " ; euler " << quaternion::q2e(ublas::subrange(robPtr->state.x(), 3, 7)));
 				JFR_DEBUG("Robot state stdev after move " << stdevFromCov(robPtr->state.P()));
@@ -1487,13 +1520,13 @@ int n_innovation = 0;
 				n_innovation++;
 				
 				robPtr->reinit_extrapolate();
-				if (exporter) exporter->exportCurrentState();
+				if (exporter && ready) exporter->exportCurrentState();
 #ifdef GENOM_DISABLE // export genom
 				jblas::vec euler_x(3);
 				jblas::sym_mat euler_P(3,3);
 				quaternion::q2e(ublas::subrange(robotPtr->state.x(), 3, 7), ublas::subrange(robotPtr->state.P(), 3,7, 3,7), euler_x, euler_P);
 				jblas::vec stateX(6);
-				ublas::subrange(stateX,0,3) = ublas::subrange(robotPtr->state.x(),0,3)+robotPtr->origin_sensors-robotPtr->origin_export;
+				ublas::subrange(stateX,0,3) = ublas::subrange(robotPtr->state.x(),0,3)+robotPtr->origin;
 				ublas::subrange(stateX,3,6) = euler_x;
 				jblas::vec stateP(6);
 				for(int i = 0; i < 3; ++i) stateP(i) = robotPtr->state.P(i,i);
@@ -1630,10 +1663,32 @@ int n_innovation = 0;
 
 	if (exporter) exporter->stop();
 	(*world)->slam_blocked(true);
+
+	// stop all sensors
+	ready = false;
+	for (MapAbstract::RobotList::iterator robIter = mapPtr->robotList().begin();
+		robIter != mapPtr->robotList().end(); ++robIter)
+	{
+		if ((*robIter)->hardwareEstimatorPtr)
+		{
+			std::cout << "Stopping robot " << (*robIter)->id() << " estimator" << std::endl;
+			(*robIter)->hardwareEstimatorPtr->stop();
+		}
+		for (RobotAbstract::SensorList::iterator senIter = (*robIter)->sensorList().begin();
+			senIter != (*robIter)->sensorList().end(); ++senIter)
+		{
+			std::cout << "Stopping sensor " << (*senIter)->id() << std::endl;
+			(*senIter)->stop();
+		}
+	}
+
+	if (loggerTask) loggerTask->stop(true);
+
 //	std::cout << "\nFINISHED ! Press a key to terminate." << std::endl;
 //	getchar();
 
-} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } } // demo_slam_main
+JFR_GLOBAL_CATCH
+} // demo_slam_main
 
 
 /** ############################################################################
@@ -1641,11 +1696,20 @@ int n_innovation = 0;
  * Display function
  * ###########################################################################*/
 
+bool demo_slam_display_first = true;
+
 void demo_slam_display(world_ptr_t *world)
-{ try {
+{ JFR_GLOBAL_TRY
+
+	if (demo_slam_display_first && !(intOpts[iReplay] & 1))
+	{
+		kernel::setCurrentThreadPriority(display_niceness);
+		demo_slam_display_first = false;
+	}
+
 //	static unsigned prev_t = 0;
 	kernel::Timer timer(display_period*1000);
-	while(true)
+	while(!(*world)->exit())
 	{
 		/*
 		if (intOpts[iDispQt])
@@ -1796,8 +1860,8 @@ void demo_slam_display(world_ptr_t *world)
 		if (intOpts[iDispQt]) break; else timer.wait();
 	}
 	
-} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
-
+JFR_GLOBAL_CATCH
+} // demo_slam_display
 
 /** ############################################################################
  * #############################################################################
@@ -1809,7 +1873,8 @@ void demo_slam_exit(world_ptr_t *world, boost::thread *thread_main) {
 	(*world)->display_condition.notify_all();
 // 	std::cout << "EXITING !!!" << std::endl;
 	//fputc('\n', stdin);
-	thread_main->timed_join(boost::posix_time::milliseconds(500));
+	thread_main->join();
+	//thread_main->timed_join(boost::posix_time::milliseconds(500));
 }
 
 /** ############################################################################
@@ -1820,11 +1885,14 @@ void demo_slam_exit(world_ptr_t *world, boost::thread *thread_main) {
 
 void demo_slam_run() {
 
+	//kernel::setProcessScheduler(slam_sched, 5); // for whole process, including display thread
+	demo_slam_display_first = true;
+
 	// to start with qt display
 	if (intOpts[iDispQt]) // at least 2d
 	{
 		#ifdef HAVE_MODULE_QDISPLAY
-		qdisplay::QtAppStart((qdisplay::FUNC)&demo_slam_display,display_priority,(qdisplay::FUNC)&demo_slam_main,slam_priority,display_period,&worldPtr,(qdisplay::EXIT_FUNC)&demo_slam_exit);
+		qdisplay::QtAppStart((qdisplay::FUNC)&demo_slam_display,0,(qdisplay::FUNC)&demo_slam_main,0,display_period,&worldPtr,(qdisplay::EXIT_FUNC)&demo_slam_exit);
 		#else
 		std::cout << "Please install qdisplay module if you want 2D display" << std::endl;
 		#endif
@@ -1832,9 +1900,7 @@ void demo_slam_run() {
 	if (intOpts[iDispGdhe] || intOpts[iDispOsg]) // only 3d
 	{
 		#if defined(HAVE_MODULE_GDHE) || defined(HAVE_DISP_OSG)
-		kernel::setCurrentThreadPriority(display_priority);
 		boost::thread *thread_disp = new boost::thread(boost::bind(demo_slam_display,&worldPtr));
-		kernel::setCurrentThreadPriority(slam_priority);
 		demo_slam_main(&worldPtr);
 		delete thread_disp;
 		#else
@@ -1842,7 +1908,6 @@ void demo_slam_run() {
 		#endif
 	} else // none
 	{
-		kernel::setCurrentThreadPriority(slam_priority);
 		demo_slam_main(&worldPtr);
 	}
 
@@ -1859,6 +1924,9 @@ void demo_slam_run() {
 #ifndef GENOM
 
 /**
+  * If you want to run with real-time SCHED_RR scheduling policy, you need to start the program
+  * as root or to chown root and chmod u+s it.
+  *
 	* Program options:
 	* --disp-2d=0/1
 	* --disp-3d=0/1
@@ -1881,7 +1949,7 @@ void demo_slam_run() {
 	* --usage
 	* --robot 0=constant vel, 1=inertial, 2=odometry
 	* --map 0=odometry, 1=global, 2=local/multimap
-	* --trigger 0=internal, 1=external mode 1, 2=external mode 0, 3=external mode 14 (PointGrey (Flea) only)
+	* --trigger 0=internal, 1=external mode 1 (controls shutter), 2=external mode 0, 3=external mode 14 (PointGrey (Flea) only)
 	* --simu 0 or <environment id>*10+<trajectory id> (
 	* --camera=0/1/2/3 -> Disable / Mono / Stereo / Bicam
 	* --freq camera frequency in double Hz (with trigger==0/1)
@@ -1901,7 +1969,7 @@ void demo_slam_run() {
 	*   demo_slam --disp-2d=1 --disp-3d=1 --render-all=1 --replay=1 --dump=1 --rand-seed=1 --pause=0 --data-path=data/rtslam01
 	*/
 int main(int argc, char* const* argv)
-{ try {
+{ JFR_GLOBAL_TRY
 
 #if COMPOSITE_VIEW
 	intOpts[iNumViews] = 1;
@@ -1966,9 +2034,10 @@ int main(int argc, char* const* argv)
 	demo_slam_init();
 	demo_slam_run();
 	
-} catch (kernel::Exception &e) { std::cout << e.what();  throw e; } }
+JFR_GLOBAL_CATCH
+}
 
-#endif
+#endif // GENOM
 
 /** ############################################################################
  * #############################################################################
@@ -1976,6 +2045,7 @@ int main(int argc, char* const* argv)
  * ###########################################################################*/
 
 #define KeyValueFile_processItem(k) { read ? keyValueFile.getItem(#k, k) : keyValueFile.setItem(#k, k); }
+#define KeyValueFile_processItem_def(k, def) { read ? keyValueFile.getItem(#k, k, def) : keyValueFile.setItem(#k, k); }
 
 #define KeyValueFile_processOptionalItem(k, defaultVal) { read ? readKeyValueFileOptionalItem(keyValueFile, #k, k, defaultVal) : keyValueFile.setItem(#k, k); }
 
@@ -2023,6 +2093,7 @@ void ConfigSetup::processKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile,
 	} else
 	{
 		KeyValueFile_processItem(CAMERA_TYPE);
+		KeyValueFile_processItem_def(CAMERA_FORMAT, "0");
 		KeyValueFile_processItem(CAMERA_DEVICE);
 		KeyValueFile_processItem(IMG_WIDTH);
 		KeyValueFile_processItem(IMG_HEIGHT);
@@ -2034,7 +2105,12 @@ void ConfigSetup::processKeyValueFile(jafar::kernel::KeyValueFile& keyValueFile,
 	KeyValueFile_processItem(UNCERT_VANG);
 	KeyValueFile_processItem(PERT_VLIN);
 	KeyValueFile_processItem(PERT_VANG);
-	
+
+	if (intOpts[iRobot] == 1 || intOpts[iTrigger] != 0)
+	{
+		KeyValueFile_processItem(MTI_DEVICE);
+	}
+
 	if (intOpts[iRobot] == 1)
 	{
 		KeyValueFile_processItem(MTI_DEVICE);

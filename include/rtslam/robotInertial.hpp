@@ -32,9 +32,9 @@ Initialize the orientation so that g is vertical.
 /**
 Estimate g as a 3D vector. If not, only estimage its magnitude and estimate
 absolute orientation to force g vertical. Less linear, but easier to integrate
-with absolute sensors.
+with absolute sensors or to export to an absolute frame.
 */
-#define ESTIMATE_G_VEC 1
+#define ESTIMATE_G_VEC 0
 
 namespace jafar {
 	namespace rtslam {
@@ -45,6 +45,7 @@ namespace jafar {
 
 		/**
 		 * Inertial measurements unit - robot motion model.
+		 * The SLAM origin is the IMU origin.
 		 * \author jsola
 		 *
 		 * This motion model is driven by IMU measurements and random perturbations, and defined by:
@@ -119,7 +120,7 @@ namespace jafar {
 				 * \sa See the extense comments on move_func() in file robotInertial.cpp for algebraic details.
 				 */
 				void move_func(const vec & _x, const vec & _u, const vec & _n, double _dt, vec & _xnew,
-				    mat & _XNEW_x, mat & _XNEW_pert);
+						mat & _XNEW_x, mat & _XNEW_pert, unsigned tempSet = 0) const;
 				/**
 				 * Initialize the value of g with the average value of acceleration
 				 * in the past.
@@ -182,7 +183,7 @@ namespace jafar {
 				 * \param g the gravity vector
 				 */
 				template<class Vx, class Vp, class Vq, class Vv, class Vab, class Vwb, class Vg>
-				inline void splitState(const Vx & x, Vp & p, Vq & q, Vv & v, Vab & ab, Vwb & wb, Vg & g) {
+				inline void splitState(const Vx & x, Vp & p, Vq & q, Vv & v, Vab & ab, Vwb & wb, Vg & g) const {
 					p = ublas::subrange(x, 0, 3);
 					q = ublas::subrange(x, 3, 7);
 					v = ublas::subrange(x, 7, 10);
@@ -204,7 +205,7 @@ namespace jafar {
 				 * \param g the gravity vector
 				 */
 				template<class Vp, class Vq, class Vv, class Vab, class Vwb, class Vg, class Vx>
-				inline void unsplitState(const Vp & p, const Vq & q, const Vv & v, const Vab & ab, const Vwb & wb, const Vg & g, Vx & x) {
+				inline void unsplitState(const Vp & p, const Vq & q, const Vv & v, const Vab & ab, const Vwb & wb, const Vg & g, Vx & x) const {
 					ublas::subrange(x, 0, 3) = p;
 					ublas::subrange(x, 3, 7) = q;
 					ublas::subrange(x, 7, 10) = v;
@@ -224,7 +225,7 @@ namespace jafar {
 				 * \param wr the gyrometer bias random walk noise
 				 */
 				template<class Vu, class V>
-				inline void splitControl(const Vu & u, V & am, V & wm) {
+				inline void splitControl(const Vu & u, V & am, V & wm) const {
 					am = project(u, ublas::range(0, 3));
 					wm = project(u, ublas::range(3, 6));
 				}
@@ -239,7 +240,7 @@ namespace jafar {
 				 * \param wr the gyrometer bias random walk noise
 				 */
 				template<class Vn, class V>
-				inline void splitPert(const Vn & n, V & an, V & wn, V & ar, V & wr) {
+				inline void splitPert(const Vn & n, V & an, V & wn, V & ar, V & wr) const {
 					an = project(n, ublas::range(0, 3));
 					wn = project(n, ublas::range(3, 6));
 					ar = project(n, ublas::range(6, 9));
@@ -250,14 +251,18 @@ namespace jafar {
 
 			private:
 				// Temporary members to accelerate Jacobian computation
-				mat33 Idt; ///<       Temporary I*dt matrix
-				mat33 Rold, Rdt; ///< Temporary rotation matrices
-				mat44 QNEW_q; ///<    Temporary Jacobian matrix
-				mat44 QNEW_qwdt; ///< Temporary Jacobian matrix
-				mat43 QWDT_w; ///<    Temporary Jacobian matrix
-				mat43 QNEW_w; ///<    Temporary Jacobian matrix
-				mat34 VNEW_q; ///<    Temporary Jacobian matrix
-				mat44 QNORM_qnew; ///<	Temporary Jacobian matrix
+				struct TempVariables
+				{
+					mat33 Idt; ///<       Temporary I*dt matrix
+					mat33 Rdt; ///< Temporary rotation matrices
+					mat44 QNEW_q; ///<    Temporary Jacobian matrix
+					mat44 QNEW_qwdt; ///< Temporary Jacobian matrix
+					mat43 QWDT_w; ///<    Temporary Jacobian matrix
+					mat43 QNEW_w; ///<    Temporary Jacobian matrix
+					mat34 VNEW_q; ///<    Temporary Jacobian matrix
+					mat44 QNORM_qnew; ///<	Temporary Jacobian matrix
+				};
+				mutable TempVariables tempvars0, tempvars1;
 
 		};
 

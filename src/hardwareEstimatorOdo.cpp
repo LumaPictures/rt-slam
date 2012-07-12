@@ -79,7 +79,7 @@ namespace hardware {
 	{
 		if (started) { std::cout << "Warning: This HardwareEstimatorOdo has already been started" << std::endl; return; }
 		started = true;
-		for(int i = 0; i < bufferSize; ++i) buffer(i,0) = -1.;
+		for(int i = 0; i < bufferSize; ++i) buffer(i,0) = -99.;
 		// start acquire task
 		index_load_ = 0;
 		preloadTask_thread = new boost::thread(boost::bind(&HardwareEstimatorOdo::preloadTask,this));

@@ -47,7 +47,10 @@ namespace jafar {
 
 		void RobotConstantVelocity::move_func(const vec & _x, const vec & _u,
 		    const vec & _n, const double _dt, vec & _xnew, mat & _XNEW_x,
-		    mat & _XNEW_u) {
+				mat & _XNEW_u, unsigned tempSet) const
+		{
+			TempVariables & t = (tempSet == 0 ? tempvars0 : tempvars1);
+			if (tempSet > 1) std::cerr << "Error: RobotConstantVelocity has only 2 sets of temps variables, increase it if you need more" << std::endl;
 
 			using namespace jblas;
 			using namespace ublas;
@@ -106,16 +109,16 @@ namespace jafar {
 
 			// predict each part of the state, give or build non-trivial Jacobians
 			pnew = p + v * _dt;
-			PNEW_v = I_3 * _dt;
+			t.PNEW_v = I_3 * _dt;
 			vec4 qwdt;
-			quaternion::v2q(w * _dt, qwdt, QWDT_wdt);
-			quaternion::qProd(q, qwdt, qnew, QNEW_q, QNEW_qwdt);
-			QNEW_wdt = prod(QNEW_qwdt, QWDT_wdt);
+			quaternion::v2q(w * _dt, qwdt, t.QWDT_wdt);
+			quaternion::qProd(q, qwdt, qnew, t.QNEW_q, t.QNEW_qwdt);
+			t.QNEW_wdt = prod(t.QNEW_qwdt, t.QWDT_wdt);
 			vnew = v + vi;
 			wnew = w + wi;
 
 			// normalize quaternion
-			ublasExtra::normalizeJac(qnew, QNORM_qnew);
+			ublasExtra::normalizeJac(qnew, t.QNORM_qnew);
 			ublasExtra::normalize(qnew);
 
 			// Compose state - this is the output state.
@@ -123,9 +126,9 @@ namespace jafar {
 
 			// Build transition Jacobian matrix XNEW_x
 			_XNEW_x.assign(identity_mat(state.size()));
-			project(_XNEW_x, range(0, 3), range(7, 10)) = PNEW_v;
-			project(_XNEW_x, range(3, 7), range(3, 7)) = prod(QNORM_qnew,QNEW_q);
-			project(_XNEW_x, range(3, 7), range(10, 13)) = prod(QNORM_qnew,QNEW_wdt) * _dt;
+			project(_XNEW_x, range(0, 3), range(7, 10)) = t.PNEW_v;
+			project(_XNEW_x, range(3, 7), range(3, 7)) = prod(t.QNORM_qnew,t.QNEW_q);
+			project(_XNEW_x, range(3, 7), range(10, 13)) = prod(t.QNORM_qnew,t.QNEW_wdt) * _dt;
 
 			/*
 			 * We are normally supposed here to build the perturbation Jacobian matrix XNEW_pert.
@@ -165,34 +168,37 @@ namespace jafar {
 			log.writeComment(oss.str());
 			
 			log.writeLegendTokens("time");
+
 			log.writeLegendTokens("absx absy absz");
+			log.writeLegendTokens("absyaw abspitch absroll");
 			log.writeLegendTokens("x y z");
 			log.writeLegendTokens("qw qx qy qz");
-			log.writeLegendTokens("yaw pitch roll");
 			log.writeLegendTokens("vx vy vz");
 			log.writeLegendTokens("vyaw vpitch vroll");
+
+			log.writeLegendTokens("sig_absx sig_absy sig_absz");
+			log.writeLegendTokens("sig_absyaw sig_abspitch sig_absroll");
 			log.writeLegendTokens("sig_x sig_y sig_z");
 			log.writeLegendTokens("sig_qw sig_qx sig_qy sig_qz");
-			log.writeLegendTokens("sig_yaw sig_pitch sig_roll");
 			log.writeLegendTokens("sig_vx sig_vy sig_vz");
 			log.writeLegendTokens("sig_vyaw sig_vpitch sig_vroll");
 		}
 		
 		void RobotConstantVelocity::writeLogData(kernel::DataLogger& log) const
 		{
-			jblas::vec euler_x(3);
-			jblas::sym_mat euler_P(3,3);
-			quaternion::q2e(ublas::subrange(state.x(), 3, 7), ublas::project(state.P(), ublas::range(3, 7), ublas::range(3,7)), euler_x, euler_P);
-			
+			jblas::vec state_x(6), state_P(6);
+			slamPoseToRobotPose(ublas::subrange(state.x(),0,7), ublas::subrange(state.P(),0,7,0,7), state_x, state_P);
+
 			log.writeData(self_time);
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(state.x()(i)+origin_sensors(i)-origin_export(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_x(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_x(3+2-i));
 			for(int i = 0 ; i < 7 ; ++i) log.writeData(state.x()(i));
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(euler_x(2-i));
 			for(int i = 7 ; i < 10; ++i) log.writeData(state.x()(i));
 			for(int i = 10; i < 13; ++i) log.writeData(state.x()(2-(i-10)+10));
 			
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_P(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_P(3+2-i));
 			for(int i = 0 ; i < 7 ; ++i) log.writeData(sqrt(state.P()(i,i)));
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(sqrt(euler_P(2-i,2-i)));
 			for(int i = 7 ; i < 10; ++i) log.writeData(sqrt(state.P()(i,i)));
 			for(int i = 10; i < 13; ++i) log.writeData(sqrt(state.P()(2-(i-10)+10,2-(i-10)+10)));
 		}

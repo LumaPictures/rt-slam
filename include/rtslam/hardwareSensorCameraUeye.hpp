@@ -37,12 +37,7 @@ class HardwareSensorCameraUeye: public HardwareSensorCamera
 		HIDS camera;
 #endif
 		
-		double realFreq;
-		double last_timestamp;
-		
-		int mode;
-
-		void preloadTask(void);
+		virtual void preloadTask(void);
 		
 		void init(int mode, std::string dump_path, cv::Size imgSize);
 #ifdef HAVE_UEYE
@@ -57,7 +52,8 @@ class HardwareSensorCameraUeye: public HardwareSensorCamera
 		@param mode 0 = normal, 1 = dump used images, 2 = from dumped images
 		@param dump_path the path where the images are saved/read... Use a ram disk !!!
 		*/
-		HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode = 0, std::string dump_path = ".");
+		HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id,
+			cv::Size size, double freq, int trigger, double shutter, int mode = 0, std::string dump_path = ".", kernel::LoggerTask *loggerTask = NULL);
 #endif
 		/**
 		Same as before but assumes that mode=2, and doesn't need a camera
@@ -66,9 +62,6 @@ class HardwareSensorCameraUeye: public HardwareSensorCamera
 		
 		~HardwareSensorCameraUeye();
 
-		virtual void start();
-		virtual double getLastTimestamp() { boost::unique_lock<boost::mutex> l(mutex_data); return last_timestamp; }
-		double getFreq() { return realFreq; }
 };
 
 typedef boost::shared_ptr<HardwareSensorCameraUeye> hardware_sensor_ueye_ptr_t;

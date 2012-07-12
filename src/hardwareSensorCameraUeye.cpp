@@ -43,18 +43,18 @@ namespace rtslam {
 namespace hardware {
 
 	void HardwareSensorCameraUeye::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 #ifdef HAVE_UEYE
 		char *image;
 		int imageID;
 		UEYEIMAGEINFO imageInfo;
 #endif
 
-		while(true)
+		while(!stopping)
 		{
 			// acquire the image
 #ifdef HAVE_UEYE
-				int buff_write = getWritePos();
+				int buff_write = getWritePos(true); // don't need to lock because we are the only writer
 
 				if (is_WaitForNextImage(camera, 1000, &image, &imageID) != IS_SUCCESS) continue;
 				bufferSpecPtr[buff_write]->arrival = kernel::Clock::getTime();
@@ -73,7 +73,8 @@ namespace hardware {
 			incWritePos();
 			condition->setAndNotify(1);
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 
 	
 	
@@ -81,27 +82,8 @@ namespace hardware {
 	{
 		this->mode = mode;
 		HardwareSensorCamera::init(dump_path, imgSize);
+	}
 
-		// start save tasks
-		if (mode == 1)
-		{
-			saveTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::saveTask,this));
-			savePushTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::savePushTask,this));
-		}
-	}
-	
-	void HardwareSensorCameraUeye::start()
-	{
-		// start acquire task
-		if (started) { std::cout << "Warning: This HardwareSensorCameraUeye has already been started" << std::endl; return; }
-		started = true;
-		last_timestamp = kernel::Clock::getTime();
-		if (mode == 2)
-			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::preloadTaskOffline,this));
-		else
-			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCameraUeye::preloadTask,this));
-	}
-		
 	
 	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
 		HardwareSensorCamera(condition, imgSize, dump_path)
@@ -181,9 +163,11 @@ namespace hardware {
 		init(mode, dump_path, imgSize);
 	}
 
-	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id, cv::Size size, double freq, int trigger, double shutter, int mode, std::string dump_path):
-		HardwareSensorCamera(condition, bufferSize)
+	HardwareSensorCameraUeye::HardwareSensorCameraUeye(kernel::VariableCondition<int> *condition, int bufferSize, const std::string &camera_id,
+		cv::Size size, double freq, int trigger, double shutter, int mode, std::string dump_path, kernel::LoggerTask *loggerTask):
+		HardwareSensorCamera(condition, bufferSize, loggerTask)
 	{
+		if (mode == 1 && !loggerTask) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "HardwareSensorCameraUeye: you must provide a loggerTask if you want to dump data.");
 		init(camera_id, size, shutter, freq, trigger, mode, dump_path);
 	}
 #endif
@@ -207,7 +191,6 @@ namespace hardware {
 			if (is_ExitCamera(camera) != IS_SUCCESS)
 				{ is_GetError (camera, &r, &msg); std::cerr << "HardwareSensorCameraUeye::~, is_ExitCamera: " << msg << std::endl; }
 		}
-		saveTask_cond.wait(boost::lambda::_1 == 0);
 #endif
 	}
 
