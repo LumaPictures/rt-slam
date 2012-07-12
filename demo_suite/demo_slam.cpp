@@ -259,6 +259,7 @@ enum { iDispQt = 0,
     iGps,
     iSimu,
     iExport,
+    iProgress,
     nIntOpts };
 int intOpts[nIntOpts] = {0};
 const int nFirstIntOpt = 0, nLastIntOpt = nIntOpts-1;
@@ -299,6 +300,7 @@ struct option long_options[] = {
 	{"gps", 2, 0, 0},
 	{"simu", 2, 0, 0},
 	{"export", 2, 0, 0},
+	{"progress", 2, 0, 0},
 	// double options
 	{"freq", 2, 0, 0}, // should be in config file
 	{"shutter", 2, 0, 0}, // should be in config file
@@ -1438,7 +1440,18 @@ int n_innovation = 0;
 		if ((*world)->exit()) break;
 		
 		bool had_data = false;
-		chrono.reset();
+		// If they've requested periodic progress messages...
+		if (intOpts[iProgress])
+		{
+			if (chrono.elapsedSecond() >= intOpts[iProgress])
+			{
+				chrono.reset();
+				// Wanted to display a % complete if in replay mode, but
+				// would require pre-directory scan to figure out how many
+				// image files there were...
+				std::cout << "Current frame: " << (*world)->t << std::endl;
+			}
+		}
 
 		SensorManagerAbstract::ProcessInfo pinfo = sensorManager->getNextDataToUse();
 		bool no_more_data = pinfo.no_more_data;
@@ -1859,6 +1872,7 @@ void demo_slam_run() {
 	* --pause=0/n 0=don't, n=pause for frames>n (needs --replay 1)
 	* --log=0/1/filename -> log result in text file
 	* --export=0/1/2 -> Off/socket/poster
+	* --progress=0/n	display progress messages - if 0, don't display - otherwise, display every n seconds
 	* --verbose=0/1/2/3/4/5 -> Off/Trace/Warning/Debug/VerboseDebug/VeryVerboseDebug
 	* --data-path=/mnt/ram/rtslam
 	* --config-setup=data/setup.cfg
