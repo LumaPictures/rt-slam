@@ -101,7 +101,10 @@ namespace jafar {
 		 * -----------------------------------------------------------------------------
 		 */
 		void RobotInertial::move_func(const vec & _x, const vec & _u, const vec & _n, double _dt, vec & _xnew, mat & _XNEW_x,
-		    mat & _XNEW_pert) {
+				mat & _XNEW_pert, unsigned tempSet) const
+		{
+			TempVariables & t = (tempSet == 0 ? tempvars0 : tempvars1);
+			if (tempSet > 1) std::cerr << "Error: RobotInertial has only 2 sets of temps variables, increase it if you need more" << std::endl;
 
 			// Separate things out to make it clearer
 			vec3 p, v, ab, wb, gv;
@@ -123,7 +126,7 @@ namespace jafar {
 			vec4 qnew;
 
 			// It is useful to start obtaining a nice rotation matrix and the product R*dt
-			Rdt = q2R(q) * _dt;
+			t.Rdt = q2R(q) * _dt;
 
 			// Invert sensor functions. Get true angular rates:
 			// w = wsens - wb
@@ -148,7 +151,7 @@ namespace jafar {
 			gnew = g; //                 gravity does not change
 			
 			// normalize quaternion
-			ublasExtra::normalizeJac(qnew, QNORM_qnew);
+			ublasExtra::normalizeJac(qnew, t.QNORM_qnew);
 			ublasExtra::normalize(qnew);
 
 			// Put it all together - this is the output state
@@ -175,10 +178,10 @@ namespace jafar {
 
 			// Fill in XNEW_v: VNEW_g and PNEW_v = I * dt
 			identity_mat I(3);
-			Idt = I * _dt;
+			t.Idt = I * _dt;
 			mat Iz; if (g_size == 1) { Iz.resize(3,1); Iz.clear(); Iz(2,0)=1; } else { Iz = I; }
 			mat Izdt = Iz * _dt;
-			subrange(_XNEW_x, 0, 3, 7, 10) = Idt;
+			subrange(_XNEW_x, 0, 3, 7, 10) = t.Idt;
 			#if AVGSPEED
 			subrange(_XNEW_x, 0, 3, 16, 16+g_size) = Izdt*_dt/2;
 			#endif
@@ -186,32 +189,32 @@ namespace jafar {
 
 			// Fill in QNEW_q
 			// qnew = qold ** qwdt  ( qnew = q1 ** q2 = qProd(q1, q2) in rtslam/quatTools.hpp )
-			qProd_by_dq1(qwdt, QNEW_q);
-			subrange(_XNEW_x, 3, 7, 3, 7) = prod(QNORM_qnew, QNEW_q);
+			qProd_by_dq1(qwdt, t.QNEW_q);
+			subrange(_XNEW_x, 3, 7, 3, 7) = prod(t.QNORM_qnew, t.QNEW_q);
 
 			// Fill in QNEW_wb
 			// QNEW_wb = QNEW_qwdt * QWDT_wdt * WDT_w * W_wb
 			//         = QNEW_qwdt * QWDT_w * W_wb
 			//         = QNEW_qwdt * QWDT_w * (-1)
-			qProd_by_dq2(q, QNEW_qwdt);
+			qProd_by_dq2(q, t.QNEW_qwdt);
 			// Here we get the derivative of qwdt wrt wtrue, so we consider dt = 1 and call for the derivative of v2q() with v = w*dt
 //			v2q_by_dv(wtrue, QWDT_w);
-			v2q_by_dv(wtrue*_dt, QWDT_w); QWDT_w *= _dt;
-			QNEW_w = prod ( QNEW_qwdt, QWDT_w);
-			subrange(_XNEW_x, 3, 7, 13, 16) = -prod(QNORM_qnew,QNEW_w);
+			v2q_by_dv(wtrue*_dt, t.QWDT_w); t.QWDT_w *= _dt;
+			t.QNEW_w = prod ( t.QNEW_qwdt, t.QWDT_w);
+			subrange(_XNEW_x, 3, 7, 13, 16) = -prod(t.QNORM_qnew,t.QNEW_w);
 
 			// Fill VNEW_q
 			// VNEW_q = d(R(q)*v) / dq
-			rotate_by_dq(q, am-ab, VNEW_q); VNEW_q *= _dt;
-			subrange(_XNEW_x, 7, 10, 3, 7) = VNEW_q;
+			rotate_by_dq(q, am-ab, t.VNEW_q); t.VNEW_q *= _dt;
+			subrange(_XNEW_x, 7, 10, 3, 7) = t.VNEW_q;
 			#if AVGSPEED
-			subrange(_XNEW_x, 0, 3, 3, 7) = VNEW_q*_dt/2;
+			subrange(_XNEW_x, 0, 3, 3, 7) = t.VNEW_q*_dt/2;
 			#endif
 
 			// Fill in VNEW_ab
-			subrange(_XNEW_x, 7, 10, 10, 13) = -Rdt;
+			subrange(_XNEW_x, 7, 10, 10, 13) = -t.Rdt;
 			#if AVGSPEED
-			subrange(_XNEW_x, 0, 3, 10, 13) = -Rdt*_dt/2;
+			subrange(_XNEW_x, 0, 3, 10, 13) = -t.Rdt*_dt/2;
 			#endif
 
 
@@ -236,7 +239,7 @@ namespace jafar {
 			// Fill in the easy bits first
 			_XNEW_pert.clear();
 			#if AVGSPEED
-			ublas::subrange(_XNEW_pert, 0, 3, 0, 3) = Idt/2;
+			ublas::subrange(_XNEW_pert, 0, 3, 0, 3) = t.Idt/2;
 			#endif
 			ublas::subrange(_XNEW_pert, 7, 10, 0, 3) = I;
 			ublas::subrange(_XNEW_pert, 10, 13, 6, 9) = I;
@@ -256,7 +259,7 @@ namespace jafar {
 			//	with: U_continuous_time expressed in ( rad / s / sqrt(s) )^2 = rad^2 / s^3 <-- yeah, it is confusing, but true.
 			//   (Use perturbation.set_P_from_continuous() helper if necessary.)
 			//
-			subrange(_XNEW_pert, 3, 7, 3, 6) = prod (QNORM_qnew, QNEW_w) * (1 / _dt);
+			subrange(_XNEW_pert, 3, 7, 3, 6) = prod (t.QNORM_qnew, t.QNEW_w) * (1 / _dt);
 		}
 
 #if 1
@@ -377,20 +380,22 @@ namespace jafar {
 		{
 			std::ostringstream oss; oss << "Robot " << id();
 			log.writeComment(oss.str());
+
 			log.writeLegendTokens("time");
 			
 			log.writeLegendTokens("absx absy absz");
+			log.writeLegendTokens("absyaw abspitch absroll");
 			log.writeLegendTokens("x y z");
 			log.writeLegendTokens("qw qx qy qz");
-			log.writeLegendTokens("yaw pitch roll");
 			log.writeLegendTokens("vx vy vz");
 			log.writeLegendTokens("axb ayb azb");
 			log.writeLegendTokens("vyawb vpitchb vrollb");
 			log.writeLegendTokens("gx gy gz");
 			
+			log.writeLegendTokens("sig_absx sig_absy sig_absz");
+			log.writeLegendTokens("sig_absyaw sig_abspitch sig_absroll");
 			log.writeLegendTokens("sig_x sig_y sig_z");
 			log.writeLegendTokens("sig_qw sig_qx sig_qy sig_qz");
-			log.writeLegendTokens("sig_yaw sig_pitch sig_roll");
 			log.writeLegendTokens("sig_vx sig_vy sig_vz");
 			log.writeLegendTokens("sig_axb sig_ayb sig_azb");
 			log.writeLegendTokens("sig_vyawb sig_vpitchb sig_vrollb");
@@ -399,14 +404,13 @@ namespace jafar {
 		
 		void RobotInertial::writeLogData(kernel::DataLogger& log) const
 		{
-			jblas::vec euler_x(3);
-			jblas::sym_mat euler_P(3,3);
-			quaternion::q2e(ublas::subrange(state.x(), 3, 7), ublas::project(state.P(), ublas::range(3, 7), ublas::range(3,7)), euler_x, euler_P);
-			
+			jblas::vec state_x(6), state_P(6);
+			slamPoseToRobotPose(ublas::subrange(state.x(),0,7), ublas::subrange(state.P(),0,7,0,7), state_x, state_P);
+
 			log.writeData(self_time);
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(state.x()(i)+origin_sensors(i)-origin_export(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_x(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_x(3+2-i));
 			for(int i = 0 ; i < 7 ; ++i) log.writeData(state.x()(i));
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(euler_x(2-i));
 			for(int i = 7 ; i < 10; ++i) log.writeData(state.x()(i));
 			for(int i = 10; i < 13; ++i) log.writeData(state.x()(i));
 			for(int i = 13; i < 16; ++i) log.writeData(state.x()(2-(i-13)+13));
@@ -414,8 +418,9 @@ namespace jafar {
 									else { for(int i = 16; i < 16+g_size; ++i) log.writeData(state.x()(i)); }
 
 			
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_P(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_P(3+2-i));
 			for(int i = 0 ; i < 7 ; ++i) log.writeData(sqrt(state.P()(i,i)));
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(sqrt(euler_P(2-i,2-i)));
 			for(int i = 7 ; i < 10; ++i) log.writeData(sqrt(state.P()(i,i)));
 			for(int i = 10; i < 13; ++i) log.writeData(sqrt(state.P()(i,i)));
 			for(int i = 13; i < 16; ++i) log.writeData(sqrt(state.P()(2-(i-13)+13,2-(i-13)+13)));

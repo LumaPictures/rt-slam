@@ -44,7 +44,10 @@ namespace jafar {
 
 		void RobotOdometry::move_func(const vec & _x, const vec & _u,
 		    const vec & _n, const double _dt, vec & _xnew, mat & _XNEW_x,
-		    mat & _XNEW_u) {
+				mat & _XNEW_u, unsigned tempSet) const
+		{
+			TempVariables & t = (tempSet == 0 ? tempvars0 : tempvars1);
+			if (tempSet > 1) std::cerr << "Error: RobotOdometry has only 2 sets of temps variables, increase it if you need more" << std::endl;
 
 			using namespace jblas;
 			using namespace ublas;
@@ -93,24 +96,24 @@ namespace jafar {
 			// position update
 			vec3 pnew;
 			vec4 qnew;
-			quaternion::eucFromFrame(_x, dx, pnew, PNEW_x, PNEW_dx); 
+			quaternion::eucFromFrame(_x, dx, pnew, PNEW_x, t.PNEW_dx);
 			
 			//quaternion update
 			vec4 qdv;
-			quaternion::v2q(dv, qdv, QDV_dv); //orientation increment to quaternion with jacobians
-			quaternion::qProd(q, qdv, qnew, QNEW_q, QNEW_qdv);
+			quaternion::v2q(dv, qdv, t.QDV_dv); //orientation increment to quaternion with jacobians
+			quaternion::qProd(q, qdv, qnew, t.QNEW_q, t.QNEW_qdv);
 			
-			QNEW_dv = prod(QNEW_qdv, QDV_dv);
+			t.QNEW_dv = prod(t.QNEW_qdv, t.QDV_dv);
 			
 			unsplitState(pnew, qnew, _xnew);
 			
 			_XNEW_x.clear();
 			subrange(_XNEW_x, 0, 3, 0, 7) = PNEW_x;
-			subrange(_XNEW_x, 3, 7, 3, 7) = QNEW_q;
+			subrange(_XNEW_x, 3, 7, 3, 7) = t.QNEW_q;
 
 			_XNEW_u.clear();
-			subrange(_XNEW_u, 0, 3, 0, 3) = PNEW_dx;
-			subrange(_XNEW_u, 3, 7, 3, 6) = QNEW_dv;			
+			subrange(_XNEW_u, 0, 3, 0, 3) = t.PNEW_dx;
+			subrange(_XNEW_u, 3, 7, 3, 6) = t.QNEW_dv;
 		}
 			
 
@@ -122,7 +125,7 @@ namespace jafar {
 
 		 Disabled after moving hardware estimators to generic sensor interface
 		 */
-		void RobotOdometry::move(double time){
+		bool RobotOdometry::move(double time){
 #if 0
 			bool firstmove = false;
 			if (self_time < 0.) { firstmove = true; self_time = time; }
@@ -184,6 +187,7 @@ namespace jafar {
 			}
 			self_time = time;
 #endif
+			return true;
 		}
 
 		void RobotOdometry::init_func(const vec & _x, const vec & _u, vec & _xnew) {
@@ -205,30 +209,32 @@ namespace jafar {
 			log.writeComment(oss.str());
 			
 			log.writeLegendTokens("time");
+
 			log.writeLegendTokens("absx absy absz");
+			log.writeLegendTokens("absyaw abspitch absroll");
 			log.writeLegendTokens("x y z");
 			log.writeLegendTokens("qw qx qy qz");
-			log.writeLegendTokens("yaw pitch roll");
 
+			log.writeLegendTokens("sig_absx sig_absy sig_absz");
+			log.writeLegendTokens("sig_absyaw sig_abspitch sig_absroll");
 			log.writeLegendTokens("sig_x sig_y sig_z");
 			log.writeLegendTokens("sig_qw sig_qx sig_qy sig_qz");
-			log.writeLegendTokens("sig_yaw sig_pitch sig_roll");
 
 		}
 		
 		void RobotOdometry::writeLogData(kernel::DataLogger& log) const
 		{
-			jblas::vec euler_x(3);
-			jblas::sym_mat euler_P(3,3);
-			quaternion::q2e(ublas::subrange(state.x(), 3, 7), ublas::project(state.P(), ublas::range(3, 7), ublas::range(3,7)), euler_x, euler_P);
-			
-			log.writeData(self_time);
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(state.x()(i)+origin_sensors(i)-origin_export(i));
-			for(int i = 0 ; i < 7 ; ++i) log.writeData(state.x()(i));
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(euler_x(2-i));
+			jblas::vec state_x(6), state_P(6);
+			slamPoseToRobotPose(ublas::subrange(state.x(),0,7), ublas::subrange(state.P(),0,7,0,7), state_x, state_P);
 
+			log.writeData(self_time);
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_x(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_x(3+2-i));
+			for(int i = 0 ; i < 7 ; ++i) log.writeData(state.x()(i));
+
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_P(i));
+			for(int i = 0 ; i < 3 ; ++i) log.writeData(state_P(3+2-i));
 			for(int i = 0 ; i < 7 ; ++i) log.writeData(sqrt(state.P()(i,i)));
-			for(int i = 0 ; i < 3 ; ++i) log.writeData(sqrt(euler_P(2-i,2-i)));
 		}
 	}
 }

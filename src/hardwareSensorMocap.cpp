@@ -19,7 +19,7 @@ namespace hardware {
 
 
 	void HardwareSensorMocap::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 
 		std::fstream f;
 		if (mode == 1 || mode == 2)
@@ -28,7 +28,7 @@ namespace hardware {
 			f.open(oss.str().c_str(), (mode == 1 ? std::ios_base::out : std::ios_base::in));
 		}
 		
-		while (true)
+		while (!stopping)
 		{
 			if (mode == 2)
 			{
@@ -44,25 +44,24 @@ namespace hardware {
 				//arrival_delay = reading.arrival - reading.data(0);
 			}
 			
-			int buff_write = getWritePos();
+			int buff_write = getWritePos(true); // don't need to lock because we are the only writer
 			buffer(buff_write).data = reading.data;
 			buffer(buff_write).data(0) += timestamps_correction;
 			last_timestamp = reading.data(0);
 			incWritePos();
 			
 			if (mode == 1)
-			{
-				// we put the maximum precision because we want repeatability with the original run
-				f << std::setprecision(50) << reading.data << std::endl;
-			}
+				loggerTask->push(new LoggableProprio(f, reading.data));
 			
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 	
 	
-	HardwareSensorMocap::HardwareSensorMocap(kernel::VariableCondition<int> *condition, unsigned bufferSize, int mode, std::string dump_path):
-		HardwareSensorProprioAbstract(condition, bufferSize, ctVar), mode(mode), dump_path(dump_path)
+	HardwareSensorMocap::HardwareSensorMocap(kernel::VariableCondition<int> *condition, unsigned bufferSize, int mode, std::string dump_path, kernel::LoggerTask *loggerTask):
+		HardwareSensorProprioAbstract(condition, bufferSize, ctVar), mode(mode), dump_path(dump_path), loggerTask(loggerTask)
 	{
+		if (mode == 1 && !loggerTask) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "HardwareSensorMocap: you must provide a loggerTask if you want to dump data.");
 		addQuantity(qPos);
 		addQuantity(qOriEuler); // using euler x/y/z because the sensors work with euler and the uncertainty is provided with euler)
 		initData();
@@ -88,6 +87,13 @@ namespace hardware {
 			cond_offline_full.wait(l);
 		}
 	}
-	
+
+	void HardwareSensorMocap::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+	}
+
 }}}
 

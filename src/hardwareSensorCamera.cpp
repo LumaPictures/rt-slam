@@ -28,17 +28,17 @@ namespace hardware {
 
 
 	void HardwareSensorCamera::preloadTaskOffline(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		int ndigit = 0;
 
-		while(true)
+		while(!stopping)
 		{
 			// acquire the image
 			boost::unique_lock<boost::mutex> l(mutex_data);
 			while (isFull(true)) cond_offline_freed.wait(l);
 			l.unlock();
 			int buff_write = getWritePos();
-			while (true)
+			while (!stopping)
 			{
 				// FIXME manage multisensors : put sensor id in filename
 				std::ostringstream oss;
@@ -68,12 +68,32 @@ namespace hardware {
 			incWritePos();
 			if (condition) condition->setAndNotify(1);
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 
+
+	class LoggableImage: public kernel::Loggable
+	{
+	 private:
+		std::string dump_path;
+		rawimage_ptr_t image;
+		int index;
+
+	 public:
+		LoggableImage(std::string const & dump_path, rawimage_ptr_t const & image, int index):
+			dump_path(dump_path), image(image), index(index) {}
+		virtual void log()
+		{
+			std::ostringstream oss; oss << dump_path << "/image_" << std::setw(7) << std::setfill('0') << index;
+			image->img->save(oss.str() + std::string(".pgm"));
+			std::fstream f; f.open((oss.str() + std::string(".time")).c_str(), std::ios_base::out);
+			f << std::setprecision(20) << image->timestamp << std::endl; f.close();
+		}
+	};
 
 
 	void HardwareSensorCamera::savePushTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 		int last_processed_index = index();
 		
 		// clean previously existing files
@@ -97,49 +117,21 @@ namespace hardware {
 		if (!r) {} // don't care
 		#endif
 		
-		while (true)
+		int save_index = 0;
+
+		while (!stopping)
 		{
 			index.wait(boost::lambda::_1 != last_processed_index);
 			// push image to file for saving
-			saveTask_cond.lock();
-			bufferSave.push_front(rawimage_ptr_t(static_cast<RawImage*>(bufferSpecPtr[last_sent_pos]->clone())));
-			saveTask_cond.var++;
-			saveTask_cond.unlock();
-			saveTask_cond.notify();
+			rawimage_ptr_t img = rawimage_ptr_t(static_cast<RawImage*>(bufferSpecPtr[last_sent_pos]->clone()));
+			loggerTask->push(new LoggableImage(dump_path, img, save_index));
+
 			last_processed_index = index();
-		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
-	
-	
-	void HardwareSensorCamera::saveTask(void)
-	{ try {
-		
-		int save_index = index();
-		int remain = 0, prev_remain = 0;
-		
-		while (true)
-		{
-			// wait for and get next data to save
-			saveTask_cond.wait(boost::lambda::_1 != 0, false);
-			rawimage_ptr_t image = bufferSave.back();
-			bufferSave.pop_back();
-			saveTask_cond.var--;
-			remain = saveTask_cond.var;
-			saveTask_cond.unlock();
-			
-			std::ostringstream oss; oss << dump_path << "/image_" << std::setw(7) << std::setfill('0') << save_index;
-			image->img->save(oss.str() + std::string(".pgm"));
-			std::fstream f; f.open((oss.str() + std::string(".time")).c_str(), std::ios_base::out); 
-			f << std::setprecision(20) << image->timestamp << std::endl; f.close();
-			
-			if (remain > prev_remain || (remain == 0 && prev_remain != 0))
-				std::cout << save_index << ": " << remain << " in queue." << std::endl;
-			prev_remain = remain;
-			
 			++save_index;
 		}
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
-	
+		JFR_GLOBAL_CATCH
+	}
+
 	
 	void HardwareSensorCamera::init(std::string dump_path, cv::Size imgSize)
 	{
@@ -161,15 +153,43 @@ namespace hardware {
 		index_load = 0;
 	}
 
+
+	void HardwareSensorCamera::start()
+	{
+		if (started) { std::cout << "Warning: This HardwareSensorCameraFirewire has already been started" << std::endl; return; }
+
+		// start save tasks
+		// the save push task is here to avoid blocking during image clone, and to automatically detect images that are used
+		if (mode == 1)
+			savePushTask_thread = new boost::thread(boost::bind(&HardwareSensorCamera::savePushTask,this));
+
+		// start acquire task
+		last_timestamp = kernel::Clock::getTime();
+		if (mode == 2)
+			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCamera::preloadTaskOffline,this));
+		else
+			preloadTask_thread = new boost::thread(boost::bind(&HardwareSensorCamera::preloadTask,this));
+
+		started = true;
+	}
+
+	void HardwareSensorCamera::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+		if (mode == 1) savePushTask_thread->join();
+	}
+
 	
 	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> *condition, cv::Size imgSize, std::string dump_path):
-		HardwareSensorExteroAbstract(condition, 3), saveTask_cond(0)
+		HardwareSensorExteroAbstract(condition, 3)
 	{
 		init(dump_path, imgSize);
 	}
 
-	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize):
-		HardwareSensorExteroAbstract(condition, bufferSize), saveTask_cond(0)
+	HardwareSensorCamera::HardwareSensorCamera(kernel::VariableCondition<int> *condition, int bufferSize, kernel::LoggerTask *loggerTask):
+		HardwareSensorExteroAbstract(condition, bufferSize), loggerTask(loggerTask)
 	{}
 
 	

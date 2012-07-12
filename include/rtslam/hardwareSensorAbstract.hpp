@@ -13,6 +13,7 @@
 #define HARDWARE_SENSOR_HPP_
 
 #include "kernel/threads.hpp"
+#include "kernel/dataLog.hpp"
 
 #include "jmath/indirectArray.hpp"
 
@@ -87,6 +88,13 @@ class HardwareSensorAbstract
 		double data_period;
 		double arrival_delay;
 		bool started; /// has the start() command been already run ?
+		/** the stop() command has been run, we should stop reading data
+		No need to protect it with a mutex for two reasons:
+		1. assigning and reading a boolean is an indivisible operation
+		2. boolean have only two possible values, so even if read/write clash
+		was possible it wouldn't hurt
+		*/
+		bool stopping;
 		
 		int bufferSize; /// size of the ring buffer
 		VecT buffer; /// the ring buffer
@@ -151,10 +159,11 @@ class HardwareSensorAbstract
 		HardwareSensorAbstract(kernel::VariableCondition<int> *condition, unsigned bufferSize):
 			write_pos(0), read_pos(0), buffer_full(false), read_pos_used(false),
 		  condition(condition), index(-1),
-		  data_count(0), no_more_data(false), timestamps_correction(0.0), started(false),
+			data_count(0), no_more_data(false), timestamps_correction(0.0), started(false), stopping(false),
 		  bufferSize(bufferSize), buffer(bufferSize)
 		{}
 		virtual void start() = 0; ///< start the acquisition thread, once the object is configured
+		virtual void stop() = 0; ///< stop the acquisition thread
 		void setSyncConfig(double timestamps_correction = 0.0)
 			{ this->timestamps_correction = timestamps_correction; }
 		/**
@@ -231,7 +240,7 @@ class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>
 		CovType covType() { return cov_type; } /// does this hardware sensor return full covariance matrices with data?
 		void initData() {
 			int size = readingSize();
-			for(int i = 0; i < bufferSize; ++i) { buffer[i].resize(size); buffer(i).data(0) = -1.; }
+			for(int i = 0; i < bufferSize; ++i) { buffer[i].resize(size); buffer(i).data(0) = -99.; }
 			reading.resize(size);
 		}
 		/**
@@ -260,11 +269,28 @@ typedef boost::shared_ptr<hardware::HardwareSensorExteroAbstract> hardware_senso
 typedef boost::shared_ptr<hardware::HardwareSensorProprioAbstract> hardware_sensorprop_ptr_t;
 
 
+class LoggableProprio: public kernel::Loggable
+{
+ private:
+	std::fstream &f;
+	jblas::vec data;
+
+ public:
+	LoggableProprio(std::fstream &f, jblas::vec & data): f(f), data(data) {}
+	virtual void log()
+	{
+		// we put the maximum precision because we want repeatability with the original run
+		f << std::setprecision(50) << data << std::endl;
+	}
+};
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Template implementations
+
 
 template<typename T>
 typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(double t1, double t2, bool release)
@@ -274,7 +300,7 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 	int i1, i2;
 	int i, j;
 
-	// find indexes by dichotomy
+	// find first by dichotomy
 	int i_left = write_pos, i_right = write_pos + bufferSize-1;
 	while(i_left != i_right)
 	{
@@ -283,14 +309,15 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 		if (extractRawTimestamp(buffer(i)) >= t1) i_right = j; else i_left = j+1;
 	}
 	i = i_left % bufferSize;
-	i1 = (i-1 + bufferSize) % bufferSize;
-	if (t1 <= -0.1) i1 = i;
+	i1 = (i-1 + bufferSize) % bufferSize; // get the one before for interpolation
+	if (t1 <= -0.1) i1 = i; // or not if we explicitly asked for the first one
 	bool no_larger = (extractRawTimestamp(buffer(i)) < t1);
 	bool no_smaller = (i == write_pos);
 	if (no_larger && extractRawTimestamp(buffer(i1)) < 0.0)  // no data at all
 		return ublas::project(buffer, jmath::ublasExtra::ia_set(ublas::range(0,0)));
 	if (no_smaller && t1 > 0) JFR_ERROR(RtslamException, RtslamException::BUFFER_OVERFLOW, "Missing data: increase buffer size !");
-	
+
+	// find last by dichotomy
 	if (no_larger)
 		i2 = i1;
 	else
@@ -303,22 +330,21 @@ typename HardwareSensorAbstract<T>::VecIndT HardwareSensorAbstract<T>::getRaws(d
 			if (extractRawTimestamp(buffer(i)) >= t2) i_right = j; else i_left = j+1;
 		}
 		i = i_left % bufferSize;
-		i2 = i;
+		i2 = i; // this is already the one after for interpolation, or the last one if there is none after
 	}
-	
-	
+
 	// return mat_indirect
 	if (release) read_pos = i1;
 	l.unlock();
-	cond_offline_freed.notify_all();
+	if (release) cond_offline_freed.notify_all();
 
-	if (i1 < i2)
+	if (i1 <= i2)
 	{
-		return ublas::project(buffer, 
+		return ublas::project(buffer,
 			jmath::ublasExtra::ia_set(ublas::range(i1,i2+1)));
 	} else
 	{
-		return ublas::project(buffer, 
+		return ublas::project(buffer,
 			jmath::ublasExtra::ia_concat(jmath::ublasExtra::ia_set(ublas::range(i1,buffer.size())),
 			                             jmath::ublasExtra::ia_set(ublas::range(0,i2+1))));
 	}

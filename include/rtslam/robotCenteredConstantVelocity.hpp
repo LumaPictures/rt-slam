@@ -71,7 +71,7 @@ namespace jafar {
 				 * \param _XNEW_pert the Jacobian of xnew wrt p
 				 */
 				void move_func(const vec & _x, const vec & _u, const vec & _n, const double _dt, vec & _xnew, mat & _XNEW_x,
-				    mat & _XNEW_pert);
+						mat & _XNEW_pert, unsigned tempSet = 0) const;
 
 				void computePertJacobian();
 
@@ -155,7 +155,7 @@ namespace jafar {
 				 * \param qBase the quaternion of the base frame in the current frame
 				 */
 				template<class Vx, class Vp, class Vq, class Vv, class Vw>
-				inline void splitState(const Vx x, Vp & p, Vq & q, Vv & v, Vw & w, Vp & pBase, Vq & qBase) {
+				inline void splitState(const Vx x, Vp & p, Vq & q, Vv & v, Vw & w, Vp & pBase, Vq & qBase) const {
 					p     = ublas::subrange(x,  0,  3);
 					q     = ublas::subrange(x,  3,  7);
 					v     = ublas::subrange(x,  7, 10);
@@ -196,7 +196,7 @@ namespace jafar {
 				 * \param qBase the quaternion of the base frame in the current frame
 				 */
 				template<class Vp, class Vq, class Vv, class Vw, class Vx>
-				inline void unsplitState(const Vp & p, const Vq & q, const Vv & v, const Vw & w, const Vp & pBase, const Vq & qBase, Vx & x) {
+				inline void unsplitState(const Vp & p, const Vq & q, const Vv & v, const Vw & w, const Vp & pBase, const Vq & qBase, Vx & x) const {
 					ublas::subrange(x, 0, 3)   = p    ;
 					ublas::subrange(x, 3, 7)   = q    ;
 					ublas::subrange(x, 7, 10)  = v    ;
@@ -214,21 +214,25 @@ namespace jafar {
 				 * \param wi the angular impulse.
 				 */
 				template<class Vu, class V>
-				inline void splitControl(const Vu & u, V & vi, V & wi) {
+				inline void splitControl(const Vu & u, V & vi, V & wi) const {
 					vi = project(u, ublas::range(0, 3));
 					wi = project(u, ublas::range(3, 6));
 				}
 
 			private:
 				// temporary matrices to speed up Jacobian computation
-				vec7 lastJump; // F contains [p,q]' of the last reframe prediction.
-				mat33 PNEW_v; ///<      Temporary Jacobian matrix
-				mat43 QNEW_wdt; ///<   Temporary Jacobian matrix
-//				mat43 PBASENEW_p; ///<    Temporary Jacobian matrix
-//				mat44 PBASENEW_q; ///<    Temporary Jacobian matrix
-//				mat43 QBASENEW_p; ///<    Temporary Jacobian matrix
-//				mat44 QBASENEW_q; ///<    Temporary Jacobian matrix
-//				mat44 QNEW_q; ///<      Temporary Jacobian matrix
+				struct TempVariables
+				{
+					vec7 lastJump; // F contains [p,q]' of the last reframe prediction.
+					mat33 PNEW_v; ///<      Temporary Jacobian matrix
+					mat43 QNEW_wdt; ///<   Temporary Jacobian matrix
+	//				mat43 PBASENEW_p; ///<    Temporary Jacobian matrix
+	//				mat44 PBASENEW_q; ///<    Temporary Jacobian matrix
+	//				mat43 QBASENEW_p; ///<    Temporary Jacobian matrix
+	//				mat44 QBASENEW_q; ///<    Temporary Jacobian matrix
+	//				mat44 QNEW_q; ///<      Temporary Jacobian matrix
+				};
+				mutable TempVariables tempvars0, tempvars1;
 
 		};
 	}
