@@ -35,7 +35,7 @@ namespace jafar {
 				}
 				virtual ~DataManagerMarkerFinder() {
 				}
-				void processKnown(raw_ptr_t data) {
+				void processKnown(raw_ptr_t data, double date_limit = -1.) {
 				}
 				void detectNew(raw_ptr_t data);
 //				void process(boost::shared_ptr<RawAbstract> data);
