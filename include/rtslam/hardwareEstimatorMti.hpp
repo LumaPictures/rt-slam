@@ -63,7 +63,7 @@ namespace hardware {
 		public:
 			
 			HardwareEstimatorMti(std::string device, double trigger_mode, double trigger_freq, double trigger_shutter, int bufferSize_, int mode = 0, std::string dump_path = ".");
-			~HardwareEstimatorMti();
+			virtual ~HardwareEstimatorMti();
 			virtual void start();
 			void setSyncConfig(double timestamps_correction = 0.0/*, bool tightly_synchronized = false, double tight_offset*/);
 			
