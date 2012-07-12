@@ -23,6 +23,7 @@ namespace jafar {
 
 		/**
 		 * Constant velocity model robot class.
+		 * The SLAM origin is the camera origin.
 		 *
 		 * \author jsola
 		 *
@@ -88,7 +89,7 @@ namespace jafar {
 				 * \param _XNEW_pert the Jacobian of xnew wrt p
 				 */
 				void move_func(const vec & _x, const vec & _u, const vec & _n, const double _dt, vec & _xnew, mat & _XNEW_x,
-				    mat & _XNEW_pert);
+						mat & _XNEW_pert, unsigned tempSet = 0) const;
 
 				void computePertJacobian();
 
@@ -130,7 +131,7 @@ namespace jafar {
 				 * \param w the angular velocity
 				 */
 				template<class Vx, class Vp, class Vq, class Vv, class Vw>
-				inline void splitState(const Vx x, Vp & p, Vq & q, Vv & v, Vw & w) {
+				inline void splitState(const Vx x, Vp & p, Vq & q, Vv & v, Vw & w) const {
 					p = ublas::subrange(x, 0, 3);
 					q = ublas::subrange(x, 3, 7);
 					v = ublas::subrange(x, 7, 10);
@@ -149,7 +150,7 @@ namespace jafar {
 				 * \param x the state vector
 				 */
 				template<class Vp, class Vq, class Vv, class Vw, class Vx>
-				inline void unsplitState(const Vp & p, const Vq & q, const Vv & v, const Vw & w, Vx & x) {
+				inline void unsplitState(const Vp & p, const Vq & q, const Vv & v, const Vw & w, Vx & x) const {
 					ublas::subrange(x, 0, 3) = p;
 					ublas::subrange(x, 3, 7) = q;
 					ublas::subrange(x, 7, 10) = v;
@@ -165,19 +166,23 @@ namespace jafar {
 				 * \param wi the angular impulse.
 				 */
 				template<class Vu, class V>
-				inline void splitControl(const Vu & u, V & vi, V & wi) {
+				inline void splitControl(const Vu & u, V & vi, V & wi) const {
 					vi = project(u, ublas::range(0, 3));
 					wi = project(u, ublas::range(3, 6));
 				}
 
 			private:
 				// temporary matrices to speed up Jacobian computation
-				mat33 PNEW_v; ///<      Temporary Jacobian matrix
-				mat43 QWDT_wdt; ///< 	Temporary Jacobian matrix
-				mat44 QNEW_qwdt; ///<   Temporary Jacobian matrix
-				mat43 QNEW_wdt; ///<    Temporary Jacobian matrix
-				mat44 QNEW_q; ///<      Temporary Jacobian matrix
-				mat44 QNORM_qnew; ///<	Temporary Jacobian matrix
+				struct TempVariables
+				{
+					mat33 PNEW_v; ///<      Temporary Jacobian matrix
+					mat43 QWDT_wdt; ///< 	Temporary Jacobian matrix
+					mat44 QNEW_qwdt; ///<   Temporary Jacobian matrix
+					mat43 QNEW_wdt; ///<    Temporary Jacobian matrix
+					mat44 QNEW_q; ///<      Temporary Jacobian matrix
+					mat44 QNORM_qnew; ///<	Temporary Jacobian matrix
+				};
+				mutable TempVariables tempvars0, tempvars1;
 
 		};
 	}

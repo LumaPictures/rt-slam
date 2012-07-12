@@ -84,6 +84,7 @@ namespace jafar {
 				virtual void discard(unsigned id) = 0; ///< discard a data without using it
 				virtual void init(double date) { use_for_init = false; } ///< use previous data to initialize the robot if needed
 				virtual void start() = 0;
+				virtual void stop() = 0;
 
 				enum type_enum {
 					PINHOLE, BARRETO
@@ -160,7 +161,8 @@ namespace jafar {
 				void setHardwareSensor(hardware::hardware_sensorprop_ptr_t hardwareSensorPtr_)
 					{ hardwareSensorPtr = hardwareSensorPtr_; }
 				virtual void start() { hardwareSensorPtr->start(); }
-				
+				virtual void stop() { hardwareSensorPtr->stop(); }
+
 				virtual int queryAvailableRaws(RawInfos &infos)
 					{ int res = hardwareSensorPtr->getUnreadRawInfos(infos); infos.integrate_all = integrate_all; return res; }
 				virtual int queryNextAvailableRaw(RawInfo &info)
@@ -216,7 +218,8 @@ namespace jafar {
 				void setHardwareSensor(hardware::hardware_sensorext_ptr_t hardwareSensorPtr_)
 					{ hardwareSensorPtr = hardwareSensorPtr_; }
 				virtual void start() { hardwareSensorPtr->start(); }
-				
+				virtual void stop() { hardwareSensorPtr->stop(); }
+
 //				virtual int acquireRaw() = 0;
 //				virtual raw_ptr_t getRaw() = 0;
 

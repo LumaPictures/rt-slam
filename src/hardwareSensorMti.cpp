@@ -22,7 +22,7 @@ namespace rtslam {
 namespace hardware {
 
 	void HardwareSensorMti::preloadTask(void)
-	{ try {
+	{ JFR_GLOBAL_TRY
 #ifdef HAVE_MTI
 		INERTIAL_DATA data;
 #endif
@@ -35,7 +35,7 @@ namespace hardware {
 			f.open(oss.str().c_str(), (mode == 1 ? std::ios_base::out : std::ios_base::in));
 		}
 		
-		while (true)
+		while (!stopping)
 		{
 			if (mode == 2)
 			{
@@ -65,31 +65,32 @@ namespace hardware {
 				arrival_delay = reading.arrival - reading.data(0);
 #endif
 			}
-			int buff_write = getWritePos();
+			int buff_write = getWritePos(true); // don't need to lock because we are the only writer
 			buffer(buff_write).data = reading.data;
 			buffer(buff_write).data(0) += timestamps_correction;
 			incWritePos();
 			if (condition) condition->setAndNotify(1);
 			
 			if (mode == 1)
-			{
-				// we put the maximum precision because we want repeatability with the original run
-				f << std::setprecision(50) << reading.data << std::endl;
-			}
+				loggerTask->push(new LoggableProprio(f, reading.data));
+
 		}
 		
 		if (mode == 1 || mode == 2)
 			f.close();
 		
-	} catch (kernel::Exception &e) { std::cout << e.what(); throw e; } }
+		JFR_GLOBAL_CATCH
+	}
 
-	HardwareSensorMti::HardwareSensorMti(kernel::VariableCondition<int> *condition, std::string device, double trigger_mode, double trigger_freq, double trigger_shutter, int bufferSize_, int mode, std::string dump_path):
+	HardwareSensorMti::HardwareSensorMti(kernel::VariableCondition<int> *condition, std::string device, double trigger_mode,
+		double trigger_freq, double trigger_shutter, int bufferSize_, int mode, std::string dump_path, kernel::LoggerTask *loggerTask):
 		HardwareSensorProprioAbstract(condition, bufferSize_, ctNone),
 #ifdef HAVE_MTI
 		mti(NULL),
 #endif
-		/*tightly_synchronized(false), */ mode(mode), dump_path(dump_path)
+		/*tightly_synchronized(false), */ mode(mode), dump_path(dump_path), loggerTask(loggerTask)
 	{
+		if (mode == 1 && !loggerTask) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "HardwareSensorMti: you must provide a loggerTask if you want to dump data.");
 		addQuantity(qAcc);
 		addQuantity(qAngVel);
 		addQuantity(qMag);
@@ -160,6 +161,13 @@ namespace hardware {
 		std::cout << " done." << std::endl;
 	}
 	
+	void HardwareSensorMti::stop()
+	{
+		if (!started) return;
+		stopping = true;
+		preloadTask_thread->join();
+	}
+
 	void HardwareSensorMti::setSyncConfig(double timestamps_correction/*, bool tightly_synchronized, double tight_offset*/)
 	{
 		this->timestamps_correction = timestamps_correction;
