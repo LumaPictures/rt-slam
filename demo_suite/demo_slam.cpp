@@ -106,7 +106,7 @@
  *
  */
 
-#define MARKER_SEARCH 1
+#define KNOWN_MARKER_SEARCH 1
 
 
 /*
@@ -203,9 +203,9 @@
 #include "rtslam/hardwareSensorInertialAdhocSimulator.hpp"
 #include "rtslam/exporterSocket.hpp"
 
-#if MARKER_SEARCH
+#if KNOWN_MARKER_SEARCH
 #include "rtslam/dataManagerMarkerFinder.hpp"
-#endif // MARKER_SEARCH
+#endif // KNOWN_MARKER_SEARCH
 
 /** ############################################################################
  * #############################################################################
@@ -232,7 +232,7 @@ typedef ImagePointObservationMaker<ObservationPinHoleAnchoredHomogeneousPoint, S
 typedef DataManagerOnePointRansac<RawImage, SensorPinhole, FeatureImagePoint, image::ConvexRoi, ActiveSearchGrid, ImagePointHarrisDetector, ImagePointZnccMatcher> DataManager_ImagePoint_Ransac;
 typedef DataManagerOnePointRansac<simu::RawSimu, SensorPinhole, simu::FeatureSimu, image::ConvexRoi, ActiveSearchGrid, simu::DetectorSimu<image::ConvexRoi>, simu::MatcherSimu<image::ConvexRoi> > DataManager_ImagePoint_Ransac_Simu;
 
-#if MARKER_SEARCH
+#if KNOWN_MARKER_SEARCH
 typedef DataManagerMarkerFinder<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
 #endif
 
@@ -762,6 +762,7 @@ void demo_slam_init()
 #endif
 	map_manager_ptr_t mmPoint;
 	map_manager_ptr_t mmSeg;
+
 	switch(intOpts[iMap])
 	{
 		case 0: { // odometry
@@ -1279,11 +1280,11 @@ void demo_slam_init()
 
 		}
 
-#if MARKER_SEARCH
+#if KNOWN_MARKER_SEARCH
 		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder());
 		dmImf11->linkToParentSensorSpec(senPtr11);
 		dmImf11->linkToParentMapManager(mmPoint);
-#endif // MARKER_SEARCH
+#endif // KNOWN_MARKER_SEARCH
 
 	} // if (intOpts[iCamera])
 
