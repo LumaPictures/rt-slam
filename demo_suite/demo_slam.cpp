@@ -108,7 +108,6 @@
 
 #define KNOWN_MARKER_SEARCH 1
 
-
 /*
  * STATUS: in progress, do not use for now
  * This uses HDseg powered Segment based slam instead of the usual point based slam.
@@ -204,7 +203,9 @@
 #include "rtslam/exporterSocket.hpp"
 
 #if KNOWN_MARKER_SEARCH
-#include "rtslam/dataManagerMarkerFinder.hpp"
+    #include "rtslam/dataManagerMarkerFinder.hpp"
+    // TODO: make this a config or command-line option
+    const size_t KNOWN_MARKER_MAP_SIZE = 1;
 #endif // KNOWN_MARKER_SEARCH
 
 /** ############################################################################
@@ -755,10 +756,10 @@ void demo_slam_init()
 	landmark_factory_ptr_t pointLmkFactory;
 	landmark_factory_ptr_t segLmkFactory;
 #if SEGMENT_BASED
-	 segLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPointsLine, LandmarkAnchoredHomogeneousPointsLine>());
+	segLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPointsLine, LandmarkAnchoredHomogeneousPointsLine>());
 #endif
 #if SEGMENT_BASED != 1
-	 pointLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPoint, LandmarkEuclideanPoint>());
+	pointLmkFactory.reset(new LandmarkFactory<LandmarkAnchoredHomogeneousPoint, LandmarkEuclideanPoint>());
 #endif
 	map_manager_ptr_t mmPoint;
 	map_manager_ptr_t mmSeg;
@@ -802,6 +803,22 @@ void demo_slam_init()
 		mmPoint->linkToParentMap(mapPtr);
 	if(mmSeg != NULL)
 		mmSeg->linkToParentMap(mapPtr);
+
+#if KNOWN_MARKER_SEARCH
+    // For simplicity, all marker landmarks are euclidean, and the manager is
+    // always a global one, regardless of the map setting.
+	// We also have our own map, because we don't want to include known marker
+	// landmarks in the EK-Filter (which would slow it down)... but we need
+	// someplace to store the data...
+	map_ptr_t knownMapPtr(new MapAbstract(KNOWN_MARKER_MAP_SIZE));
+	knownMapPtr->linkToParentWorld(worldPtr);
+    landmark_factory_ptr_t markerLmkFactory;
+    markerLmkFactory.reset(new LandmarkFactory<LandmarkEuclideanPoint, LandmarkEuclideanPoint>());
+    map_manager_ptr_t mmMarker;
+    mmMarker.reset(new MapManagerRecent(markerLmkFactory));
+    mmMarker->linkToParentMap(knownMapPtr);
+#endif
+
 
 	// simulation environment
 	boost::shared_ptr<simu::AdhocSimulator> simulator;
@@ -1283,7 +1300,7 @@ void demo_slam_init()
 #if KNOWN_MARKER_SEARCH
 		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder());
 		dmImf11->linkToParentSensorSpec(senPtr11);
-		dmImf11->linkToParentMapManager(mmPoint);
+		dmImf11->linkToParentMapManager(mmMarker);
 #endif // KNOWN_MARKER_SEARCH
 
 	} // if (intOpts[iCamera])
