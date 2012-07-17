@@ -165,6 +165,7 @@ namespace hardware {
 	{
 		if (!started) return;
 		stopping = true;
+		preloadTask_thread->interrupt();
 		preloadTask_thread->join();
 	}
 
