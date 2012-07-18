@@ -21,7 +21,7 @@ namespace jafar {
 		/** ***************************************************************************************
 			MapManagerAbstract
 		******************************************************************************************/
-	
+
 		observation_ptr_t MapManagerAbstract::createNewLandmark(data_manager_ptr_t dmaOrigin)
 		{
 			landmark_ptr_t newLmk = lmkFactory->createInit(mapPtr());
@@ -47,11 +47,11 @@ namespace jafar {
 				/* Store for the return the obs corresponding to the dma origin. */
 				if (dma == dmaOrigin) resObs = newObs;
 			}
-			
+
 			return resObs;
 		}
 
-	  void MapManagerAbstract::unregisterLandmark(landmark_ptr_t lmkPtr, bool liberateFilter)
+		void MapManagerAbstract::unregisterLandmark(landmark_ptr_t lmkPtr, bool liberateFilter)
 		{
 			// first unlink all observations
 			for (LandmarkAbstract::ObservationList::iterator
@@ -70,7 +70,7 @@ namespace jafar {
 
 
 
-    void MapManagerAbstract::reparametrizeLandmark(landmark_ptr_t lmkinit)
+		void MapManagerAbstract::reparametrizeLandmark(landmark_ptr_t lmkinit)
 		{
 			//cout<<__PRETTY_FUNCTION__<<"(#"<<__LINE__<<"): " <<"" << endl;
 
@@ -128,12 +128,12 @@ namespace jafar {
 			// liberate unused map space.
 			mapPtr()->liberateStates(idxComp);
 		}
-		
-		
+
+
 		/** ***************************************************************************************
 			MapManager
 		******************************************************************************************/
-		
+
 		void MapManager::manageDefaultDeletion()
 		{
 			for(LandmarkList::iterator lmkIter = landmarkList().begin();
@@ -147,9 +147,9 @@ namespace jafar {
 				{ // all observations (sensors) must agree to delete a landmark
 					observation_ptr_t obsPtr = *obsIter;
 
-					JFR_ASSERT(obsPtr->counters.nMatch <= obsPtr->counters.nSearch, "counters.nMatch " 
+					JFR_ASSERT(obsPtr->counters.nMatch <= obsPtr->counters.nSearch, "counters.nMatch "
 										 << obsPtr->counters.nMatch << " > counters.nSearch " << obsPtr->counters.nSearch);
-					JFR_ASSERT(obsPtr->counters.nInlier <= obsPtr->counters.nMatch, "counters.nInlier " 
+					JFR_ASSERT(obsPtr->counters.nInlier <= obsPtr->counters.nMatch, "counters.nInlier "
 										 << obsPtr->counters.nInlier << " > counters.nMatch " << obsPtr->counters.nMatch);
 
 					// kill if any sensor has search area too large
@@ -168,7 +168,7 @@ namespace jafar {
 				}
 			}
 		}
-		
+
 		void MapManager::manageReparametrization()
 		{
 			for(LandmarkList::iterator lmkIter = landmarkList().begin();
@@ -194,11 +194,11 @@ namespace jafar {
 			}
 		}
 
-		
+
 		/** ***************************************************************************************
 			MapManagerOdometry
 		******************************************************************************************/
-		
+
 		void MapManagerOdometry::manageDeletion()
 		{
 			for(MapManagerAbstract::LandmarkList::iterator lmkIter = this->landmarkList().begin();
@@ -224,12 +224,12 @@ namespace jafar {
 					lmkIter = unregisterLandmark(lmkIter);
 			}
 		}
-		
+
 		bool MapManagerOdometry::isExclusive(observation_ptr_t obsPtr)
 		{
 			return (!(obsPtr->counters.nSearchSinceLastInlier > 1));
 		}
-		
+
 		/** ***************************************************************************************
 			MapManagerGlobal
 		******************************************************************************************/
@@ -304,7 +304,7 @@ namespace jafar {
 			processGrid(grid_invisible);
 		}
 
-		
+
 		void MapManagerGlobal::fillGrids(bool fill_visible)
 		{
 			if (fill_visible) {
@@ -385,7 +385,7 @@ namespace jafar {
 			}
 			return space;
 		}
-		
+
 
 		bool MapManagerGlobal::isExclusive(observation_ptr_t obsPtr)
 		{
@@ -394,27 +394,27 @@ namespace jafar {
 		}
 
 
-        /** ***************************************************************************************
-            MapManagerRecent
-        ******************************************************************************************/
+		/** ***************************************************************************************
+			MapManagerRecent
+		******************************************************************************************/
 
-        bool MapManagerRecent::mapSpaceForInit()
-        {
-            while (!MapManagerAbstract::mapSpaceForInit() && mapPtr()->current_size
-                    && !landmarkList().empty())
-            {
-                deleteOldest();
-            }
-            JFR_ASSERT(MapManagerAbstract::mapSpaceForInit(), "insufficient space for new landmark, even after clearing out map");
-            return true;
-        }
+		bool MapManagerRecent::mapSpaceForInit()
+		{
+			while (!MapManagerAbstract::mapSpaceForInit() && mapPtr()->current_size
+					&& !landmarkList().empty())
+			{
+				deleteOldest();
+			}
+			JFR_ASSERT(MapManagerAbstract::mapSpaceForInit(), "insufficient space for new landmark, even after clearing out map");
+			return true;
+		}
 
-        void MapManagerRecent::deleteOldest()
-        {
-            // the most recent landmarks are always added at the back, so the
-            // oldest should be at the front!
-        	unregisterLandmark(landmarkList().front());
-        }
+		void MapManagerRecent::deleteOldest()
+		{
+			// the most recent landmarks are always added at the back, so the
+			// oldest should be at the front!
+			unregisterLandmark(landmarkList().front());
+		}
 
 
 	}
