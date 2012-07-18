@@ -205,7 +205,7 @@
 #if KNOWN_MARKER_SEARCH
     #include "rtslam/dataManagerMarkerFinder.hpp"
     // TODO: make this a config or command-line option
-    const size_t KNOWN_MARKER_MAP_SIZE = 1;
+    const size_t KNOWN_MARKER_MAP_SIZE = 3;
 #endif // KNOWN_MARKER_SEARCH
 
 /** ############################################################################
@@ -1301,6 +1301,7 @@ void demo_slam_init()
 		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder());
 		dmImf11->linkToParentSensorSpec(senPtr11);
 		dmImf11->linkToParentMapManager(mmMarker);
+		dmImf11->setObservationFactory(obsFact);
 #endif // KNOWN_MARKER_SEARCH
 
 	} // if (intOpts[iCamera])

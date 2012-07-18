@@ -413,7 +413,7 @@ namespace jafar {
         {
             // the most recent landmarks are always added at the back, so the
             // oldest should be at the front!
-            landmarkList().pop_front();
+        	unregisterLandmark(landmarkList().front());
         }
 
 

@@ -15,7 +15,13 @@ namespace jafar {
 		void DataManagerMarkerFinder<RawSpec, SensorSpec>::
 		detectNew(raw_ptr_t data)
 		{
-		} // detect()
+			if (mapManagerPtr()->mapSpaceForInit())
+			{
+				// 2a. Create the lmk and associated obs object.
+				observation_ptr_t obsPtr =
+						mapManagerPtr()->createNewLandmark(shared_from_this());
+			}
+		}
 
 
 	} // namespace ::rtslam
