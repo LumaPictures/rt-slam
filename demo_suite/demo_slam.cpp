@@ -204,6 +204,7 @@
 
 #if KNOWN_MARKER_SEARCH
     #include "rtslam/dataManagerMarkerFinder.hpp"
+	#include "rtslam/landmarkEuclideanQuaternionPose.hpp"
     // TODO: make this a config or command-line option
     const size_t KNOWN_MARKER_MAP_SIZE = 3;
 #endif // KNOWN_MARKER_SEARCH
@@ -813,7 +814,7 @@ void demo_slam_init()
 	map_ptr_t knownMapPtr(new MapAbstract(KNOWN_MARKER_MAP_SIZE));
 	knownMapPtr->linkToParentWorld(worldPtr);
     landmark_factory_ptr_t markerLmkFactory;
-    markerLmkFactory.reset(new LandmarkFactory<LandmarkEuclideanPoint, LandmarkEuclideanPoint>());
+    markerLmkFactory.reset(new LandmarkFactory<LandmarkEuclideanQuaternionPose, LandmarkEuclideanQuaternionPose>());
     map_manager_ptr_t mmMarker;
     mmMarker.reset(new MapManagerRecent(markerLmkFactory));
     mmMarker->linkToParentMap(knownMapPtr);

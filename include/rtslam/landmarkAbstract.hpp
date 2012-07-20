@@ -81,11 +81,12 @@ namespace jafar {
 						POINT,
 						LINE,
 						PLANE,
-						ELLIPSE
+						ELLIPSE,
+						POSE
 				} ;
 
 				enum type_enum{
-                  PNT_EUC, PNT_AH, LINE_AHPL
+                  PNT_EUC, PNT_AH, LINE_AHPL, POSE_EUC_QUAT
 				};
 				type_enum type;
 				bool converged;
