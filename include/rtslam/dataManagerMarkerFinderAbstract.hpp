@@ -1,13 +1,13 @@
 /**
- * \file dataManagerMarkerFinder.hpp
+ * \file dataManagerMarkerFinderAbstract.hpp
  *
  * \date 22/06/2011
  * \author Paul Molodowitch
  * \ingroup rtslam
  */
 
-#ifndef DATAMANAGERMARKERFINDER_HPP_
-#define DATAMANAGERMARKERFINDER_HPP_
+#ifndef DATAMANAGERMARKERFINDERABSTRACT_HPP_
+#define DATAMANAGERMARKERFINDERABSTRACT_HPP_
 
 #include "boost/shared_ptr.hpp"
 
@@ -48,7 +48,7 @@ namespace jafar {
 		@ingroup rtslam
 		*/
 		template<class RawSpec, class SensorSpec>
-		class DataManagerMarkerFinder: public DataManagerAbstract, public SpecificChildOf<SensorSpec> {
+		class DataManagerMarkerFinderAbstract: public DataManagerAbstract, public SpecificChildOf<SensorSpec> {
 
 			public:
 				// Define the function linkToParentSensorSpec.
@@ -57,10 +57,10 @@ namespace jafar {
 				ENABLE_ACCESS_TO_SPECIFIC_PARENT(SensorSpec, sensorSpec);
 
 			public: // public interface
-				DataManagerMarkerFinder()
+				DataManagerMarkerFinderAbstract()
 				{
 				}
-				virtual ~DataManagerMarkerFinder() {
+				virtual ~DataManagerMarkerFinderAbstract() {
 				}
 				void processKnown(raw_ptr_t data, double date_limit = -1.) {
 				}
@@ -84,6 +84,6 @@ namespace jafar {
 }
 
 
-#include "rtslam/dataManagerMarkerFinder.impl.hpp"
+#include "rtslam/dataManagerMarkerFinderAbstract.impl.hpp"
 
-#endif /* DATAMANAGERMARKERFINDER_HPP_ */
+#endif /* DATAMANAGERMARKERFINDERABSTRACT_HPP_ */

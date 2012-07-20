@@ -1,18 +1,18 @@
 /**
- * \file dataManagerMarkerFinder.impl.hpp
+ * \file dataManagerMarkerFinderAbstract.impl.hpp
  *
  * \date 22/06/2011
  * \author Paul Molodowitch
  * \ingroup rtslam
  */
 
-#include "rtslam/dataManagerMarkerFinder.hpp"
+#include "rtslam/dataManagerMarkerFinderAbstract.hpp"
 
 namespace jafar {
 	namespace rtslam {
 
 		template<class RawSpec, class SensorSpec>
-		void DataManagerMarkerFinder<RawSpec, SensorSpec>::
+		void DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
 		detectNew(raw_ptr_t data)
 		{
 			MarkerPtr markerP = detectMarker(data);
