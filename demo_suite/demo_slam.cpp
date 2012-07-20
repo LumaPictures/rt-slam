@@ -203,7 +203,7 @@
 #include "rtslam/exporterSocket.hpp"
 
 #if KNOWN_MARKER_SEARCH
-    #include "rtslam/dataManagerMarkerFinder.hpp"
+    #include "rtslam/dataManagerMarkerFinderAbstract.hpp"
 	#include "rtslam/landmarkEuclideanQuaternionPose.hpp"
     // TODO: make this a config or command-line option
     const size_t KNOWN_MARKER_MAP_SIZE = 3;
@@ -235,7 +235,7 @@ typedef DataManagerOnePointRansac<RawImage, SensorPinhole, FeatureImagePoint, im
 typedef DataManagerOnePointRansac<simu::RawSimu, SensorPinhole, simu::FeatureSimu, image::ConvexRoi, ActiveSearchGrid, simu::DetectorSimu<image::ConvexRoi>, simu::MatcherSimu<image::ConvexRoi> > DataManager_ImagePoint_Ransac_Simu;
 
 #if KNOWN_MARKER_SEARCH
-typedef DataManagerMarkerFinder<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
+typedef DataManagerMarkerFinderAbstract<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
 #endif
 
 #if SEGMENT_BASED

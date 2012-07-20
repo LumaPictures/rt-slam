@@ -29,6 +29,7 @@ namespace jafar {
 					break;
 				default:
 					JFR_ERROR(RtslamException, RtslamException::UNKNOWN_FEATURE_TYPE, "Don't know how to convert marker to this type of landmark: " << landmark.type);
+					break;
 				}
 			}
 		}
