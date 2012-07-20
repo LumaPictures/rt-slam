@@ -195,33 +195,33 @@ namespace jafar {
 				}
 		};
 		
-        /**
-            Map manager made for keeping only the most recent landmarks
-            Very simplistic map manager, made for handling known-marker
-            landmarks.
-        */
-        class MapManagerRecent: public MapManagerAbstract {
-            protected:
+		/**
+		Map manager made for keeping only the most recent landmarks
+		Very simplistic map manager, made for handling known-marker
+		landmarks.
+		 */
+		class MapManagerRecent: public MapManagerAbstract {
+			protected:
 
 
-            protected:
-                virtual void deleteOldest();
+			protected:
+				virtual void deleteOldest();
 
-            public:
-                MapManagerRecent(landmark_factory_ptr_t lmkFactory):
-                    MapManagerAbstract(lmkFactory)
-                {}
+			public:
+				MapManagerRecent(landmark_factory_ptr_t lmkFactory):
+					MapManagerAbstract(lmkFactory)
+				{}
 
-                virtual bool mapSpaceForInit();
+				virtual bool mapSpaceForInit();
 
-                virtual void manage()
-                {}
+				virtual void manage()
+				{}
 
-                virtual bool isExclusive(observation_ptr_t obsPtr)
-                {
-                    return false;
-                }
-        };
+				virtual bool isExclusive(observation_ptr_t obsPtr)
+				{
+					return false;
+				}
+		};
 	}
 }
 
