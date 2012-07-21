@@ -203,10 +203,16 @@
 #include "rtslam/exporterSocket.hpp"
 
 #if KNOWN_MARKER_SEARCH
-    #include "rtslam/dataManagerMarkerFinderAbstract.hpp"
 	#include "rtslam/landmarkEuclideanQuaternionPose.hpp"
     // TODO: make this a config or command-line option
     const size_t KNOWN_MARKER_MAP_SIZE = 3;
+
+	#ifdef HAVE_ARUCO
+		#include "rtslam/dataManagerMarkerFinderAruco.hpp"
+		#define DataManagerMarkerFinder jafar::rtslam::DataManagerMarkerFinderAruco
+	#else
+		#error KNOWN_MARKER_SEARCH enabled, but no usable marker-finding library found
+	#endif
 #endif // KNOWN_MARKER_SEARCH
 
 /** ############################################################################
@@ -235,7 +241,7 @@ typedef DataManagerOnePointRansac<RawImage, SensorPinhole, FeatureImagePoint, im
 typedef DataManagerOnePointRansac<simu::RawSimu, SensorPinhole, simu::FeatureSimu, image::ConvexRoi, ActiveSearchGrid, simu::DetectorSimu<image::ConvexRoi>, simu::MatcherSimu<image::ConvexRoi> > DataManager_ImagePoint_Ransac_Simu;
 
 #if KNOWN_MARKER_SEARCH
-typedef DataManagerMarkerFinderAbstract<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
+	typedef DataManagerMarkerFinder<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
 #endif
 
 #if SEGMENT_BASED

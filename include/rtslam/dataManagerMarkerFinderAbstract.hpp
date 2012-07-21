@@ -12,6 +12,7 @@
 #include "boost/shared_ptr.hpp"
 
 #include "rtslam/dataManagerAbstract.hpp"
+#include "rtslam/observationAbstract.hpp"
 
 namespace jafar {
 	namespace rtslam {
@@ -57,18 +58,14 @@ namespace jafar {
 				ENABLE_ACCESS_TO_SPECIFIC_PARENT(SensorSpec, sensorSpec);
 
 			public: // public interface
-				DataManagerMarkerFinderAbstract()
-				{
-				}
-				virtual ~DataManagerMarkerFinderAbstract() {
-				}
-				void processKnown(raw_ptr_t data, double date_limit = -1.) {
-				}
-				void detectNew(raw_ptr_t data) = 0;
+				void processKnown(raw_ptr_t data, double date_limit = -1.)
+				{}
+
+				void detectNew(raw_ptr_t data);
 
 				// TODO: eventually, support multiple-marker tracking, and
 				// convert this over to return a Marker list
-				virtual MarkerPtr detectMarker(raw_ptr_t data);
+				virtual MarkerPtr detectMarker(raw_ptr_t data) = 0;
 
 			protected: // main data members
 
