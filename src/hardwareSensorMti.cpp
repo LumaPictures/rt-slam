@@ -43,7 +43,8 @@ namespace hardware {
 				boost::unique_lock<boost::mutex> l(mutex_data);
 				if (isFull(true)) cond_offline_full.notify_all();
 				if (f.eof()) { no_more_data = true; cond_offline_full.notify_all(); f.close(); return; }
-				while (isFull(true)) cond_offline_freed.wait(l);
+				while (!stopping && isFull(true)) cond_offline_freed.wait(l);
+				if (stopping) break;
 
 			} else
 			{
@@ -165,7 +166,7 @@ namespace hardware {
 	{
 		if (!started) return;
 		stopping = true;
-		preloadTask_thread->interrupt();
+		cond_offline_freed.notify_all();
 		preloadTask_thread->join();
 	}
 
