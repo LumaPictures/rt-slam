@@ -204,15 +204,18 @@
 
 #if KNOWN_MARKER_SEARCH
 	#include "rtslam/landmarkEuclideanQuaternionPose.hpp"
-    // TODO: make this a config or command-line option
-    const size_t KNOWN_MARKER_MAP_SIZE = 3;
-
 	#ifdef HAVE_ARUCO
 		#include "rtslam/dataManagerMarkerFinderAruco.hpp"
 		#define DataManagerMarkerFinder jafar::rtslam::DataManagerMarkerFinderAruco
 	#else
 		#error KNOWN_MARKER_SEARCH enabled, but no usable marker-finding library found
 	#endif
+
+    // TODO: make this a config or command-line option
+    const size_t KNOWN_MARKER_MAP_SIZE_LANDMARKS = 1;
+    const size_t KNOWN_MARKER_MAP_SIZE_VARIABLES = (KNOWN_MARKER_MAP_SIZE_LANDMARKS
+    			* jafar::rtslam::LandmarkEuclideanQuaternionPose::size());
+
 #endif // KNOWN_MARKER_SEARCH
 
 /** ############################################################################
@@ -817,7 +820,7 @@ void demo_slam_init()
 	// We also have our own map, because we don't want to include known marker
 	// landmarks in the EK-Filter (which would slow it down)... but we need
 	// someplace to store the data...
-	map_ptr_t knownMapPtr(new MapAbstract(KNOWN_MARKER_MAP_SIZE));
+	map_ptr_t knownMapPtr(new MapAbstract(KNOWN_MARKER_MAP_SIZE_VARIABLES));
 	knownMapPtr->linkToParentWorld(worldPtr);
     landmark_factory_ptr_t markerLmkFactory;
     markerLmkFactory.reset(new LandmarkFactory<LandmarkEuclideanQuaternionPose, LandmarkEuclideanQuaternionPose>());
