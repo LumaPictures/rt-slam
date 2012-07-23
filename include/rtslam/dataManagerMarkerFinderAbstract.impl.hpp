@@ -10,29 +10,34 @@
 
 namespace jafar {
 	namespace rtslam {
+		template<class RawSpec, class SensorSpec>
+		DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		DataManagerMarkerFinderAbstract(size_t maxMarkersPerId_)
+			: maxMarkersPerId(maxMarkersPerId_)
+		{}
 
 		template<class RawSpec, class SensorSpec>
 		void DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
 		detectNew(raw_ptr_t data)
 		{
 			MarkerPtr markerP = detectMarker(data);
-			if (markerP && mapManagerPtr()->mapSpaceForInit())
-			{
-				// Create the lmk and associated obs object.
-				observation_ptr_t obsPtr =
-						mapManagerPtr()->createNewLandmark(shared_from_this());
-				LandmarkAbstract& landmark = obsPtr->landmark();
-				switch(landmark.type)
-				{
-				case(LandmarkAbstract::POSE_EUC_QUAT):
-					landmark.state.x() = markerP->pose;
-					break;
-				default:
-					JFR_ERROR(RtslamException, RtslamException::UNKNOWN_FEATURE_TYPE, "Don't know how to convert marker to this type of landmark: " << landmark.type);
-					break;
-				}
-			}
+			addMarker(markerP);
 		}
+
+		template<class RawSpec, class SensorSpec>
+		void DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		addMarker(MarkerPtr newMarker)
+		{
+			MarkerList& markers = markerMap[newMarker->id];
+			if (markers.size() >= maxMarkersPerId)
+			{
+				size_t numToDelete = markers.size() - (maxMarkersPerId - 1);
+				// Remove elements from the front - these are the oldest entries
+				markers.erase(markers.begin(), markers.begin() + numToDelete);
+			}
+			markers.push_back(newMarker);
+		}
+
 
 
 	} // namespace ::rtslam

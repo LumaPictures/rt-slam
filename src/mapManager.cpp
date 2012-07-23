@@ -393,30 +393,6 @@ namespace jafar {
 			return obsPtr->updatable;
 		}
 
-
-		/** ***************************************************************************************
-			MapManagerRecent
-		******************************************************************************************/
-
-		bool MapManagerRecent::mapSpaceForInit()
-		{
-			while (!MapManagerAbstract::mapSpaceForInit() && mapPtr()->current_size
-					&& !landmarkList().empty())
-			{
-				deleteOldest();
-			}
-			JFR_ASSERT(MapManagerAbstract::mapSpaceForInit(), "insufficient space for new landmark, even after clearing out map");
-			return true;
-		}
-
-		void MapManagerRecent::deleteOldest()
-		{
-			// the most recent landmarks are always added at the back, so the
-			// oldest should be at the front!
-			unregisterLandmark(landmarkList().front());
-		}
-
-
 	}
 }
 

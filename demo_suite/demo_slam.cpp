@@ -203,19 +203,12 @@
 #include "rtslam/exporterSocket.hpp"
 
 #if KNOWN_MARKER_SEARCH
-	#include "rtslam/landmarkEuclideanQuaternionPose.hpp"
 	#ifdef HAVE_ARUCO
 		#include "rtslam/dataManagerMarkerFinderAruco.hpp"
 		#define DataManagerMarkerFinder jafar::rtslam::DataManagerMarkerFinderAruco
 	#else
 		#error KNOWN_MARKER_SEARCH enabled, but no usable marker-finding library found
 	#endif
-
-    // TODO: make this a config or command-line option
-    const size_t KNOWN_MARKER_MAP_SIZE_LANDMARKS = 1;
-    const size_t KNOWN_MARKER_MAP_SIZE_VARIABLES = (KNOWN_MARKER_MAP_SIZE_LANDMARKS
-    			* jafar::rtslam::LandmarkEuclideanQuaternionPose::size());
-
 #endif // KNOWN_MARKER_SEARCH
 
 /** ############################################################################
@@ -815,18 +808,17 @@ void demo_slam_init()
 		mmSeg->linkToParentMap(mapPtr);
 
 #if KNOWN_MARKER_SEARCH
-    // For simplicity, all marker landmarks are euclidean, and the manager is
-    // always a global one, regardless of the map setting.
-	// We also have our own map, because we don't want to include known marker
-	// landmarks in the EK-Filter (which would slow it down)... but we need
-	// someplace to store the data...
-	map_ptr_t knownMapPtr(new MapAbstract(KNOWN_MARKER_MAP_SIZE_VARIABLES));
-	knownMapPtr->linkToParentWorld(worldPtr);
-    landmark_factory_ptr_t markerLmkFactory;
-    markerLmkFactory.reset(new LandmarkFactory<LandmarkEuclideanQuaternionPose, LandmarkEuclideanQuaternionPose>());
     map_manager_ptr_t mmMarker;
-    mmMarker.reset(new MapManagerRecent(markerLmkFactory));
-    mmMarker->linkToParentMap(knownMapPtr);
+    // The settings for this MapManager shouldn't matter, since we never actually
+    // use it manage / create any landmarks; we just need a separate one for
+    // known landmarks, so that we don't try to create an observation through
+    // our data manager whenever ANOTHER data manager that shares the same
+    // map manager creates a landmark.
+	if(pointLmkFactory != NULL)
+		mmMarker.reset(new MapManager(pointLmkFactory));
+	else if(segLmkFactory != NULL)
+		mmMarker.reset(new MapManager(segLmkFactory));
+    mmMarker->linkToParentMap(mapPtr);
 #endif
 
 
@@ -1311,7 +1303,6 @@ void demo_slam_init()
 		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder());
 		dmImf11->linkToParentSensorSpec(senPtr11);
 		dmImf11->linkToParentMapManager(mmMarker);
-		dmImf11->setObservationFactory(obsFact);
 #endif // KNOWN_MARKER_SEARCH
 
 	} // if (intOpts[iCamera])

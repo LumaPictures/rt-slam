@@ -9,6 +9,9 @@
 #ifndef DATAMANAGERMARKERFINDERABSTRACT_HPP_
 #define DATAMANAGERMARKERFINDERABSTRACT_HPP_
 
+#include <map>
+#include <deque>
+
 #include "boost/shared_ptr.hpp"
 
 #include "rtslam/dataManagerAbstract.hpp"
@@ -42,6 +45,8 @@ namespace jafar {
 		};
 
 		typedef boost::shared_ptr<Marker> MarkerPtr;
+		typedef std::deque<MarkerPtr> MarkerList;
+		typedef std::map<int, MarkerList > IdMarkerMap;
 
 		/**
 		This class implements marker / tag searches
@@ -50,7 +55,6 @@ namespace jafar {
 		*/
 		template<class RawSpec, class SensorSpec>
 		class DataManagerMarkerFinderAbstract: public DataManagerAbstract, public SpecificChildOf<SensorSpec> {
-
 			public:
 				// Define the function linkToParentSensorSpec.
 				ENABLE_LINK_TO_SPECIFIC_PARENT(SensorExteroAbstract, SensorSpec, SensorSpec, DataManagerAbstract);
@@ -58,6 +62,9 @@ namespace jafar {
 				ENABLE_ACCESS_TO_SPECIFIC_PARENT(SensorSpec, sensorSpec);
 
 			public: // public interface
+				static const size_t DEFAULT_MAX_MARKERS = 10;
+				DataManagerMarkerFinderAbstract(size_t maxMarkersPerId_=DEFAULT_MAX_MARKERS);
+
 				void processKnown(raw_ptr_t data, double date_limit = -1.)
 				{}
 
@@ -68,12 +75,15 @@ namespace jafar {
 				virtual MarkerPtr detectMarker(raw_ptr_t data) = 0;
 
 			protected: // main data members
+				IdMarkerMap markerMap;
+				size_t maxMarkersPerId;
 
 			protected: // parameters
 
 			public: // getters and setters
 
 			protected: // helper functions
+				void addMarker(MarkerPtr newMarker);
 
 		};
 
