@@ -24,7 +24,7 @@ namespace jafar {
 		*/
 		struct Marker
 		{
-			size_t id;
+			int id;
 			// Jafar standard translation/quat - ie tx,ty,tz,qw,qx,qy,qz
 			jblas::vec7 pose;
 
