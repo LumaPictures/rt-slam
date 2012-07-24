@@ -21,7 +21,10 @@ namespace jafar {
 		detectNew(raw_ptr_t data)
 		{
 			MarkerPtr markerP = detectMarker(data);
-			addMarker(markerP);
+			if (markerP)
+			{
+				addMarker(markerP);
+			}
 		}
 
 		template<class RawSpec, class SensorSpec>

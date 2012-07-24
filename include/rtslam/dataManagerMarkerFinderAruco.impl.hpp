@@ -61,7 +61,7 @@ namespace jafar {
 		MarkerPtr DataManagerMarkerFinderAruco<RawSpec, SensorSpec>::
 		detectMarker(raw_ptr_t data)
 		{
-			MarkerPtr outMarkerP = boost::make_shared<Marker>();
+			MarkerPtr outMarkerP;
 
 			boost::shared_ptr<RawSpec> rawData = SPTR_CAST<RawSpec>(data);
 			const cv::Mat& image = rawData->img->mat();
@@ -72,6 +72,7 @@ namespace jafar {
 			mDetector.detect(image, arucoMarkers, camParams, markerSize);
 			if (not arucoMarkers.empty())
 			{
+				outMarkerP = boost::make_shared<Marker>();
 				aruco::Marker& firstMarker = arucoMarkers[0];
 				outMarkerP->id = firstMarker.id;
 				cv2range(firstMarker.Tvec, outMarkerP->translation(), 3);
