@@ -51,7 +51,7 @@ namespace jafar {
 
 		// specialization to allow use of rvalue vector_range objects
 		template<class TypedVec>
-		inline void cv2typedVec(const cv::Mat& cvVec, vector_range<TypedVec> vecRange,
+		inline void cv2range(const cv::Mat& cvVec, vector_range<TypedVec> vecRange,
 				size_t size)
 		{
 			cv2typedVec(cvVec, vecRange, size);
@@ -74,7 +74,7 @@ namespace jafar {
 			{
 				aruco::Marker& firstMarker = arucoMarkers[0];
 				outMarkerP->id = firstMarker.id;
-				cv2typedVec(firstMarker.Tvec, outMarkerP->translation(), 3);
+				cv2range(firstMarker.Tvec, outMarkerP->translation(), 3);
 				jblas::vec3 rvec;
 				cv2typedVec(firstMarker.Rvec, rvec, 3);
 				outMarkerP->quaternion() = quaternion::v2q(rvec);
