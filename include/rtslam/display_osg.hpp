@@ -134,6 +134,8 @@ namespace display {
 			std::string modelFile_;
 		private:
 			osg::ref_ptr<osg::Group> root_;
+			osg::ref_ptr<osg::MatrixTransform> modelBase_;
+			osg::ref_ptr<osg::MatrixTransform> modelOffset_;
 
 		public:
 			// some configuration parameters

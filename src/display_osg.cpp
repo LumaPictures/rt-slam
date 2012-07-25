@@ -31,6 +31,12 @@ namespace rtslam {
 namespace display {
 
 	//////////////////////////////////////////////////
+	// Constants
+	//////////////////////////////////////////////////
+	const char * const MTI_MODEL_OSG = "MTi.osg";
+	const char * const AXES_COLOR_MODEL_OSG = "axes_color.osg";
+
+	//////////////////////////////////////////////////
 	// Utility macros / functions
 	//////////////////////////////////////////////////
 
@@ -330,6 +336,15 @@ namespace display {
 		rootState->setMode(GL_LIGHTING, osg::StateAttribute::ON );
 		rootState->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 		root_->setDataVariance(osg::Object::DYNAMIC);
+
+		modelBase_ = new osg::MatrixTransform;
+		modelBase_->setName("modelBase");
+		modelOffset_ = new osg::MatrixTransform;
+		modelOffset_->setName("modelOffset");
+
+		modelBase_->addChild(modelOffset_);
+		root_->addChild(modelBase_);
+
 		if (not modelFile_.empty())
 		{
 			osg::ref_ptr<osg::Node> loadedModel = osgDB::readNodeFile(modelFile_);
@@ -337,7 +352,7 @@ namespace display {
 			{
 				JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "number of osg views must be between 1 and 4, inclusive");
 			}
-			root_->addChild(loadedModel);
+			modelOffset_->addChild(loadedModel);
 		}
 
 		camTrackNode = new osg::Group;
@@ -747,8 +762,8 @@ namespace display {
 	{
 		std::string geoFilename;
 		// Add the geo for the robot
-		if (isInertial_) geoFilename = "MTi.osg";
-		else geoFilename = "axes_color.osg";
+		if (isInertial_) geoFilename = MTI_MODEL_OSG;
+		else geoFilename = AXES_COLOR_MODEL_OSG;
 		osg::ref_ptr<osg::Group> loadedModel = loadGeoFile(geoFilename);
 		loadedModel->setDataVariance(osg::Object::STATIC);
 
