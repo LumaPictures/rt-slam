@@ -27,17 +27,24 @@ namespace jafar {
 		*/
 		struct Marker
 		{
+			typedef ublas::vector_range<jblas::vec7> range_type;
+			Marker()
+			{
+				pose.clear();
+				pose[3] = 1;
+			}
+
 			int id;
 			// Jafar standard translation/quat - ie tx,ty,tz,qw,qx,qy,qz
 			jblas::vec7 pose;
 
-			ublas::vector_range<jblas::vec7>
+			range_type
 			translation()
 			{
 				return subrange(pose, 0,3);
 			}
 
-			ublas::vector_range<jblas::vec7>
+			range_type
 			quaternion()
 			{
 				return subrange(pose, 3,7);
@@ -46,7 +53,8 @@ namespace jafar {
 
 		typedef boost::shared_ptr<Marker> MarkerPtr;
 		typedef std::deque<MarkerPtr> MarkerList;
-		typedef std::map<int, MarkerList > IdMarkerMap;
+		typedef std::map<int, MarkerList > IdMarkerListMap;
+		typedef std::map<int, MarkerPtr> IdMarkerMap;
 
 		/**
 		This class implements marker / tag searches
@@ -74,9 +82,13 @@ namespace jafar {
 				// convert this over to return a Marker list
 				virtual MarkerPtr detectMarker(raw_ptr_t data) = 0;
 
+				Marker markerPose(int id);
+
 			protected: // main data members
-				IdMarkerMap markerMap;
+				IdMarkerListMap markerObservations;
+				IdMarkerMap markerObsSums;
 				size_t maxMarkersPerId;
+
 
 			protected: // parameters
 
@@ -84,6 +96,7 @@ namespace jafar {
 
 			protected: // helper functions
 				void addMarker(MarkerPtr newMarker);
+				MarkerPtr getMarkerSum(int id, bool create=false);
 
 		};
 
