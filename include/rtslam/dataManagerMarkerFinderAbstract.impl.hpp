@@ -10,14 +10,12 @@
 
 namespace jafar {
 	namespace rtslam {
-		template<class RawSpec, class SensorSpec>
-		DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		DataManagerMarkerFinderAbstract::
 		DataManagerMarkerFinderAbstract(size_t maxMarkersPerId_)
 			: maxMarkersPerId(maxMarkersPerId_)
 		{}
 
-		template<class RawSpec, class SensorSpec>
-		void DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		void DataManagerMarkerFinderAbstract::
 		detectNew(raw_ptr_t data)
 		{
 			MarkerPtr markerP = detectMarker(data);
@@ -27,8 +25,7 @@ namespace jafar {
 			}
 		}
 
-		template<class RawSpec, class SensorSpec>
-		MarkerPtr DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		MarkerPtr DataManagerMarkerFinderAbstract::
 		markerPose(int id)
 		{
 			MarkerPtr markerAvg(new Marker);
@@ -57,8 +54,7 @@ namespace jafar {
 			return markerAvg;
 		}
 
-		template<class RawSpec, class SensorSpec>
-		MarkerPtr DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		MarkerPtr DataManagerMarkerFinderAbstract::
 		getMarkerSum(int id, bool create)
 		{
 			IdMarkerMap::iterator markerSumIter = markerObsSums.find(id);
@@ -83,8 +79,7 @@ namespace jafar {
 			}
 		}
 
-		template<class RawSpec, class SensorSpec>
-		void DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		void DataManagerMarkerFinderAbstract::
 		addMarker(MarkerPtr newMarker)
 		{
 			MarkerList& markers = markerObservations[newMarker->id];

@@ -56,19 +56,15 @@ namespace jafar {
 		typedef std::map<int, MarkerList > IdMarkerListMap;
 		typedef std::map<int, MarkerPtr> IdMarkerMap;
 
+		class DataManagerMarkerFinderAbstract;
+		typedef boost::shared_ptr<DataManagerMarkerFinderAbstract> data_man_markerfinder_ptr;
+
 		/**
 		This class implements marker / tag searches
 
 		@ingroup rtslam
 		*/
-		template<class RawSpec, class SensorSpec>
-		class DataManagerMarkerFinderAbstract: public DataManagerAbstract, public SpecificChildOf<SensorSpec> {
-			public:
-				// Define the function linkToParentSensorSpec.
-				ENABLE_LINK_TO_SPECIFIC_PARENT(SensorExteroAbstract, SensorSpec, SensorSpec, DataManagerAbstract);
-				// Define the functions sensorSpec() and sensorSpecPtr().
-				ENABLE_ACCESS_TO_SPECIFIC_PARENT(SensorSpec, sensorSpec);
-
+		class DataManagerMarkerFinderAbstract: public DataManagerAbstract {
 			public: // public interface
 				static const size_t DEFAULT_MAX_MARKERS = 10;
 				DataManagerMarkerFinderAbstract(size_t maxMarkersPerId_=DEFAULT_MAX_MARKERS);
@@ -100,6 +96,14 @@ namespace jafar {
 
 		};
 
+		template<class RawSpec, class SensorSpec>
+		class DataManagerMarkerFinder: public DataManagerMarkerFinderAbstract, public SpecificChildOf<SensorSpec> {
+			public:
+				// Define the function linkToParentSensorSpec.
+				ENABLE_LINK_TO_SPECIFIC_PARENT(SensorExteroAbstract, SensorSpec, SensorSpec, DataManagerAbstract);
+				// Define the functions sensorSpec() and sensorSpecPtr().
+				ENABLE_ACCESS_TO_SPECIFIC_PARENT(SensorSpec, sensorSpec);
+		};
 	}
 }
 

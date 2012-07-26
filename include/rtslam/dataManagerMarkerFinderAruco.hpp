@@ -17,12 +17,12 @@ namespace jafar {
 	namespace rtslam {
 
 		/**
-		Implementation of DataManagerMarkerFinderAbstruct using the aruco marker-finder library
+		Implementation of DataManagerMarkerFinder using the aruco marker-finder library
 
 		@ingroup rtslam
 		*/
 		template<class RawSpec, class SensorSpec>
-		class DataManagerMarkerFinderAruco : public DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>
+		class DataManagerMarkerFinderAruco : public DataManagerMarkerFinder<RawSpec, SensorSpec>
 		{
 			public: // public interface
 				// TODO: eventually, support multiple-marker tracking, and

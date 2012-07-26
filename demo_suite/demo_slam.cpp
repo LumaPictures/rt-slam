@@ -80,7 +80,7 @@
 #if KNOWN_MARKER_SEARCH
 	#ifdef HAVE_ARUCO
 		#include "rtslam/dataManagerMarkerFinderAruco.hpp"
-		#define DataManagerMarkerFinder jafar::rtslam::DataManagerMarkerFinderAruco
+		#define DataManagerMarkerFinderSpecific jafar::rtslam::DataManagerMarkerFinderAruco
 	#else
 		#error KNOWN_MARKER_SEARCH enabled, but no usable marker-finding library found
 	#endif
@@ -112,7 +112,7 @@ typedef DataManagerOnePointRansac<RawImage, SensorPinhole, FeatureImagePoint, im
 typedef DataManagerOnePointRansac<simu::RawSimu, SensorPinhole, simu::FeatureSimu, image::ConvexRoi, ActiveSearchGrid, simu::DetectorSimu<image::ConvexRoi>, simu::MatcherSimu<image::ConvexRoi> > DataManager_ImagePoint_Ransac_Simu;
 
 #if KNOWN_MARKER_SEARCH
-	typedef DataManagerMarkerFinder<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
+	typedef DataManagerMarkerFinderSpecific<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
 #endif
 
 #if SEGMENT_BASED
