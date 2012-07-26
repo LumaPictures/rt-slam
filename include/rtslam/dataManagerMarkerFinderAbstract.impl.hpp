@@ -28,7 +28,7 @@ namespace jafar {
 		}
 
 		template<class RawSpec, class SensorSpec>
-		Marker DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
+		MarkerPtr DataManagerMarkerFinderAbstract<RawSpec, SensorSpec>::
 		markerPose(int id)
 		{
 			MarkerPtr markerAvg(new Marker);

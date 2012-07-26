@@ -82,7 +82,7 @@ namespace jafar {
 				// convert this over to return a Marker list
 				virtual MarkerPtr detectMarker(raw_ptr_t data) = 0;
 
-				Marker markerPose(int id);
+				MarkerPtr markerPose(int id);
 
 			protected: // main data members
 				IdMarkerListMap markerObservations;
