@@ -158,15 +158,28 @@ enum { iDispQt = 0,
 int intOpts[nIntOpts] = {0};
 const int nFirstIntOpt = 0, nLastIntOpt = nIntOpts-1;
 
-enum { fFreq = 0, fShutter, fHeading, nFloatOpts };
+enum { fFreq = 0,
+	fShutter,
+	fHeading,
+#if KNOWN_MARKER_SEARCH
+	fMarkerSize,
+#endif // KNOWN_MARKER_SEARCH
+	nFloatOpts };
 double floatOpts[nFloatOpts] = {0.0};
 const int nFirstFloatOpt = nIntOpts, nLastFloatOpt = nIntOpts+nFloatOpts-1;
 
-enum { sDataPath = 0, sConfigSetup, sConfigEstimation, sLog, sModel, nStrOpts };
+enum { sDataPath = 0,
+	sConfigSetup,
+	sConfigEstimation,
+	sLog,
+	sModel,
+	nStrOpts };
 std::string strOpts[nStrOpts];
 const int nFirstStrOpt = nIntOpts+nFloatOpts, nLastStrOpt = nIntOpts+nFloatOpts+nStrOpts-1;
 
-enum { bHelp = 0, bUsage, nBreakingOpts };
+enum { bHelp = 0,
+	bUsage,
+	nBreakingOpts };
 const int nFirstBreakingOpt = nIntOpts+nFloatOpts+nStrOpts, nLastBreakingOpt = nIntOpts+nFloatOpts+nStrOpts+nBreakingOpts-1;
 
 /// !!WARNING!! be careful that options are in the same order above and below
@@ -197,6 +210,7 @@ struct option long_options[] = {
 	{"freq", 2, 0, 0}, // should be in config file
 	{"shutter", 2, 0, 0}, // should be in config file
 	{"heading", 2, 0, 0},
+	{"marker-size", 2, 0, 0},
 	// string options
 	{"data-path", 1, 0, 0},
 	{"config-setup", 1, 0, 0},
@@ -1175,8 +1189,7 @@ void demo_slam_init()
 		}
 
 #if KNOWN_MARKER_SEARCH
-		//FIXME: don't hardcode marker size
-		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder(.207));
+		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder(floatOpts[fMarkerSize]));
 		dmImf11->linkToParentSensorPinhole(senPtr11);
 		dmImf11->linkToParentMapManager(mmMarker);
 #endif // KNOWN_MARKER_SEARCH
