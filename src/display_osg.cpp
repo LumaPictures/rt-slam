@@ -743,7 +743,6 @@ namespace display {
 			jblas::vec7 sensorPose = markerFinder->sensor().globalPose();
 			jblas::vec7 pose = quaternion::composeFrames(sensorPose,
 					markerFinder->markerPose(markerId)->pose);
-			std::cout << pose << std::endl;
 			modelBasePose.setTrans(pose[0], pose[1], pose[2]);
 			modelBasePose.setRotate(osg::Quat(pose[3], pose[4], pose[5], pose[6]));
 		}
