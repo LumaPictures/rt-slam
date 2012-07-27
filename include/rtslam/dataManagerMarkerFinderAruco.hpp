@@ -9,9 +9,13 @@
 #ifndef DATAMANAGERMARKERFINDERARUCO_HPP_
 #define DATAMANAGERMARKERFINDERARUCO_HPP_
 
+#ifdef HAVE_ARUCO
+
 #include "boost/shared_ptr.hpp"
 
 #include "rtslam/dataManagerMarkerFinderAbstract.hpp"
+
+#include "aruco.h"
 
 namespace jafar {
 	namespace rtslam {
@@ -25,11 +29,16 @@ namespace jafar {
 		class DataManagerMarkerFinderAruco : public DataManagerMarkerFinder<RawSpec, SensorSpec>
 		{
 			public: // public interface
+				DataManagerMarkerFinderAruco();
+
 				// TODO: eventually, support multiple-marker tracking, and
 				// convert this over to return a Marker list
 				virtual MarkerPtr detectMarker(raw_ptr_t data);
 
 			protected: // main data members
+				aruco::CameraParameters camParams;
+				float markerSize;
+				aruco::MarkerDetector mDetector;
 
 			protected: // parameters
 
@@ -44,4 +53,6 @@ namespace jafar {
 
 #include "rtslam/dataManagerMarkerFinderAruco.impl.hpp"
 
-#endif /* DATAMANAGERMARKERFINDERARUCO_HPP_ */
+#endif // HAVE_ARUCO
+
+#endif // DATAMANAGERMARKERFINDERARUCO_HPP_

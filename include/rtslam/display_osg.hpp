@@ -14,6 +14,8 @@
  */
 #define COMPOSITE_VIEW 1
 
+#include "rtslam/featureToggles.hpp"
+
 #include "jafarConfig.h"
 
 #if defined(HAVE_OSG) && defined(HAVE_QT4)
@@ -29,6 +31,10 @@
 #include "rtslam/display.hpp"
 #include "rtslam/osgWidget.hpp"
 #include "rtslam/robotInertial.hpp"
+
+#if KNOWN_MARKER_SEARCH
+	#include "rtslam/dataManagerMarkerFinderAbstract.hpp"
+#endif // KNOWN_MARKER_SEARCH
 
 //////////////////////////////////////////////////
 // Utilities / Macros
@@ -126,6 +132,8 @@ namespace display {
 			static const double DEFAULT_ELLIPSES_SCALE;
 			static const double NEAR_CLIP;
 			static const double FAR_CLIP;
+			osg::ref_ptr<osg::MatrixTransform> modelBase;
+			osg::ref_ptr<osg::MatrixTransform> modelOffset;
 
 		protected:
 			osg::ref_ptr<osgViewer::ViewerBase> viewer_;
@@ -134,8 +142,6 @@ namespace display {
 			std::string modelFile_;
 		private:
 			osg::ref_ptr<osg::Group> root_;
-			osg::ref_ptr<osg::MatrixTransform> modelBase_;
-			osg::ref_ptr<osg::MatrixTransform> modelOffset_;
 
 		public:
 			// some configuration parameters
@@ -194,10 +200,16 @@ namespace display {
 
 	class WorldOsg : public WorldDisplay, public OsgViewerHolder
 	{
+#if KNOWN_MARKER_SEARCH
+		protected:
+			osg::Matrix modelBasePose;
+			data_man_markerfinder_ptr_t markerFinder;
+#endif // KNOWN_MARKER_SEARCH
+
 		public:
 			WorldOsg(ViewerAbstract *_viewer, rtslam::WorldAbstract *_slamWor, WorldDisplay *garbage);
-			void bufferize() {}
-			void render() {}
+			void bufferize();
+			void render();
 	};
 
 	class MapOsg : public MapDisplay, public OsgGeoHolder

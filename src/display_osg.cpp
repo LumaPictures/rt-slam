@@ -337,13 +337,13 @@ namespace display {
 		rootState->setMode(GL_NORMALIZE, osg::StateAttribute::ON);
 		root_->setDataVariance(osg::Object::DYNAMIC);
 
-		modelBase_ = new osg::MatrixTransform;
-		modelBase_->setName("modelBase");
-		modelOffset_ = new osg::MatrixTransform;
-		modelOffset_->setName("modelOffset");
+		modelBase = new osg::MatrixTransform;
+		modelBase->setName("modelBase");
+		modelOffset = new osg::MatrixTransform;
+		modelOffset->setName("modelOffset");
 
-		modelBase_->addChild(modelOffset_);
-		root_->addChild(modelBase_);
+		modelBase->addChild(modelOffset);
+		root_->addChild(modelBase);
 
 		if (not modelFile_.empty())
 		{
@@ -352,8 +352,16 @@ namespace display {
 			{
 				JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "number of osg views must be between 1 and 4, inclusive");
 			}
-			modelOffset_->addChild(loadedModel);
+			modelOffset->addChild(loadedModel);
 		}
+#if KNOWN_MARKER_SEARCH
+		osg::ref_ptr<osg::MatrixTransform> axesScale(new osg::MatrixTransform);
+		// FIXME - set scale proportional to marker size
+		axesScale->setName("markerAxesScale");
+		axesScale->setMatrix(osg::Matrix::scale(.207, .207, .207));
+		axesScale->addChild(loadGeoFile(AXES_COLOR_MODEL_OSG));
+		modelBase->addChild(axesScale);
+#endif // KNOWN_MARKER_SEARCH
 
 		camTrackNode = new osg::Group;
 		camTrackNode->setName("camTrackNode");
@@ -702,8 +710,52 @@ namespace display {
 	WorldOsg::WorldOsg(ViewerAbstract *_viewer, rtslam::WorldAbstract *_slamWor, WorldDisplay *garbage):
 		WorldDisplay(_viewer, _slamWor, garbage), OsgViewerHolder(_viewer)
 	{
+#if KNOWN_MARKER_SEARCH
+		// Find the DataManagerMarkerFinderAbstract, if one exists
+		WorldAbstract::MapList& mapList = _slamWor->mapList();
+		for(WorldAbstract::MapList::iterator mapIt = mapList.begin();
+				mapIt != mapList.end(); ++mapIt)
+		{
+			MapAbstract::MapManagerList& mapManList = (*mapIt)->mapManagerList();
+			for(MapAbstract::MapManagerList::iterator mmIt = mapManList.begin();
+					mmIt != mapManList.end(); ++mmIt)
+			{
+				MapManagerAbstract::DataManagerList& dataManList = (*mmIt)->dataManagerList();
+				for(MapManagerAbstract::DataManagerList::iterator dmIt = dataManList.begin();
+						dmIt != dataManList.end(); ++dmIt)
+				{
+					markerFinder =
+							boost::dynamic_pointer_cast<DataManagerMarkerFinderAbstract>(*dmIt);
+					if (markerFinder) return;
+				}
+			}
+		}
+#endif // KNOWN_MARKER_SEARCH
 	}
 
+	void WorldOsg::bufferize()
+	{
+#if KNOWN_MARKER_SEARCH
+		if (markerFinder)
+		{
+			// FIXME - make the marker id a config parameter
+			static const int markerId = 993;
+			jblas::vec7 sensorPose = markerFinder->sensor().globalPose();
+			jblas::vec7 pose = quaternion::composeFrames(sensorPose,
+					markerFinder->markerPose(markerId)->pose);
+			std::cout << pose << std::endl;
+			modelBasePose.setTrans(pose[0], pose[1], pose[2]);
+			modelBasePose.setRotate(osg::Quat(pose[3], pose[4], pose[5], pose[6]));
+		}
+#endif // KNOWN_MARKER_SEARCH
+	}
+
+	void WorldOsg::render()
+	{
+#if KNOWN_MARKER_SEARCH
+		viewerOsg->modelBase->setMatrix(modelBasePose);
+#endif // KNOWN_MARKER_SEARCH
+	}
 
 	MapOsg::MapOsg(ViewerAbstract *_viewer, rtslam::MapAbstract *_slamMap, WorldOsg *_dispWorld):
 		MapDisplay(_viewer, _slamMap, _dispWorld), OsgGeoHolder(_viewer)
@@ -955,7 +1007,7 @@ namespace display {
 //		int ierr = lapack::syev( 'V', s_A, lambda, lapack::optimal_workspace() );
 		jblas::mat_column_major U(3, 3);
 		jblas::mat_column_major VT(3, 3);
-		int ierr = lapack::gesdd('A',A,lambda,U,VT);
+//		int ierr = lapack::gesdd('A',A,lambda,U,VT);
 		A = U;
 
 		double dx = lambda(0) < 1e-6 ? 1e-3 : sqrt(lambda(0));

@@ -6,6 +6,8 @@
  * \ingroup rtslam
  */
 
+#ifdef HAVE_ARUCO
+
 #include <vector>
 #include "rtslam/dataManagerMarkerFinderAruco.hpp"
 #include "boost/make_shared.hpp"
@@ -14,11 +16,9 @@
 #else
 #include <cxcore.hpp> // opencv
 #endif
-#include "aruco.h"
 
 namespace jafar {
 	namespace rtslam {
-
 		// Utility for converting an opencv Mat vector to vector type with
 		// a known/set type (ie, a ublas/jblas vector)
 		template<class TypedVec>
@@ -57,6 +57,16 @@ namespace jafar {
 			cv2typedVec(cvVec, vecRange, size);
 		}
 
+		// FIXME: don't hardcode marker size / cam param file
+		template<class RawSpec, class SensorSpec>
+		DataManagerMarkerFinderAruco<RawSpec, SensorSpec>::
+		DataManagerMarkerFinderAruco()
+			: markerSize(.207)
+		{
+			camParams.readFromXMLFile("/mnt/ssd/AR/aruco/build/Linux-x86_64/debug/Flea3_intrinsics.yml");
+			//camParams.resize(TheInputImage.size());
+		}
+
 		template<class RawSpec, class SensorSpec>
 		MarkerPtr DataManagerMarkerFinderAruco<RawSpec, SensorSpec>::
 		detectMarker(raw_ptr_t data)
@@ -66,11 +76,10 @@ namespace jafar {
 			boost::shared_ptr<RawSpec> rawData = SPTR_CAST<RawSpec>(data);
 			const cv::Mat& image = rawData->img->mat();
 			std::vector<aruco::Marker> arucoMarkers;
-			aruco::CameraParameters camParams;
-			float markerSize=.207;
-			aruco::MarkerDetector mDetector;
+
 			mDetector.detect(image, arucoMarkers, camParams, markerSize);
-			if (not arucoMarkers.empty())
+
+			if (not arucoMarkers.empty() and camParams.isValid())
 			{
 				outMarkerP = boost::make_shared<Marker>();
 				aruco::Marker& firstMarker = arucoMarkers[0];
@@ -87,3 +96,4 @@ namespace jafar {
 	} // namespace ::rtslam
 } // namespace jafar::
 
+#endif // HAVE_ARUCO

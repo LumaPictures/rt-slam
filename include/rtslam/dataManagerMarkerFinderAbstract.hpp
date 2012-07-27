@@ -57,7 +57,7 @@ namespace jafar {
 		typedef std::map<int, MarkerPtr> IdMarkerMap;
 
 		class DataManagerMarkerFinderAbstract;
-		typedef boost::shared_ptr<DataManagerMarkerFinderAbstract> data_man_markerfinder_ptr;
+		typedef boost::shared_ptr<DataManagerMarkerFinderAbstract> data_man_markerfinder_ptr_t;
 
 		/**
 		This class implements marker / tag searches

@@ -89,7 +89,7 @@ namespace jafar {
 			if (markers.size() >= maxMarkersPerId)
 			{
 				size_t numToDelete = markers.size() - (maxMarkersPerId - 1);
-				for(int i = 0; i < numToDelete; ++i)
+				for(size_t i = 0; i < numToDelete; ++i)
 				{
 					// Remove elements from the front - these are the oldest entries
 					markerSum->pose -= markers[0]->pose;
