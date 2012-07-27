@@ -67,7 +67,8 @@ namespace jafar {
 		class DataManagerMarkerFinderAbstract: public DataManagerAbstract {
 			public: // public interface
 				static const size_t DEFAULT_MAX_MARKERS = 10;
-				DataManagerMarkerFinderAbstract(size_t maxMarkersPerId_=DEFAULT_MAX_MARKERS);
+				DataManagerMarkerFinderAbstract(float markerSize_,
+						size_t maxMarkersPerId_=DEFAULT_MAX_MARKERS);
 
 				void processKnown(raw_ptr_t data, double date_limit = -1.)
 				{}
@@ -81,6 +82,7 @@ namespace jafar {
 				MarkerPtr markerPose(int id);
 
 			protected: // main data members
+				float markerSize;
 				IdMarkerListMap markerObservations;
 				IdMarkerMap markerObsSums;
 				size_t maxMarkersPerId;
@@ -96,13 +98,18 @@ namespace jafar {
 
 		};
 
-		template<class RawSpec, class SensorSpec>
-		class DataManagerMarkerFinder: public DataManagerMarkerFinderAbstract, public SpecificChildOf<SensorSpec> {
+		template<class RawSpec>
+		class DataManagerMarkerFinder: public DataManagerMarkerFinderAbstract, public SpecificChildOf<SensorPinhole> {
 			public:
-				// Define the function linkToParentSensorSpec.
-				ENABLE_LINK_TO_SPECIFIC_PARENT(SensorExteroAbstract, SensorSpec, SensorSpec, DataManagerAbstract);
-				// Define the functions sensorSpec() and sensorSpecPtr().
-				ENABLE_ACCESS_TO_SPECIFIC_PARENT(SensorSpec, sensorSpec);
+				// Define the function linkToParentSensorPinhole.
+				ENABLE_LINK_TO_SPECIFIC_PARENT(SensorExteroAbstract, SensorPinhole, SensorPinhole, DataManagerAbstract);
+
+				// Define the functions sensorPinhole() and sensorPinholePtr().
+				ENABLE_ACCESS_TO_SPECIFIC_PARENT(SensorPinhole, sensorPinhole);
+			public:
+				DataManagerMarkerFinder(float markerSize_)
+					: DataManagerMarkerFinderAbstract(markerSize_)
+				{}
 		};
 	}
 }

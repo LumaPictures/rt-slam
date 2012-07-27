@@ -25,11 +25,13 @@ namespace jafar {
 
 		@ingroup rtslam
 		*/
-		template<class RawSpec, class SensorSpec>
-		class DataManagerMarkerFinderAruco : public DataManagerMarkerFinder<RawSpec, SensorSpec>
+		template<class RawSpec>
+		class DataManagerMarkerFinderAruco : public DataManagerMarkerFinder<RawSpec>
 		{
 			public: // public interface
-				DataManagerMarkerFinderAruco();
+				typedef DataManagerMarkerFinder<RawSpec> ParentClass;
+
+				DataManagerMarkerFinderAruco(float markerSize_);
 
 				// TODO: eventually, support multiple-marker tracking, and
 				// convert this over to return a Marker list
@@ -37,14 +39,15 @@ namespace jafar {
 
 			protected: // main data members
 				aruco::CameraParameters camParams;
-				float markerSize;
 				aruco::MarkerDetector mDetector;
+				bool camParamsInitialized;
 
 			protected: // parameters
 
 			public: // getters and setters
 
 			protected: // helper functions
+				void setCamParams();
 
 		};
 

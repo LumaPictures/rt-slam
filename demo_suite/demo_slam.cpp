@@ -112,7 +112,7 @@ typedef DataManagerOnePointRansac<RawImage, SensorPinhole, FeatureImagePoint, im
 typedef DataManagerOnePointRansac<simu::RawSimu, SensorPinhole, simu::FeatureSimu, image::ConvexRoi, ActiveSearchGrid, simu::DetectorSimu<image::ConvexRoi>, simu::MatcherSimu<image::ConvexRoi> > DataManager_ImagePoint_Ransac_Simu;
 
 #if KNOWN_MARKER_SEARCH
-	typedef DataManagerMarkerFinderSpecific<RawImage, SensorPinhole> DataManager_ImageMarkerFinder;
+	typedef DataManagerMarkerFinderSpecific<RawImage> DataManager_ImageMarkerFinder;
 #endif
 
 #if SEGMENT_BASED
@@ -1175,8 +1175,9 @@ void demo_slam_init()
 		}
 
 #if KNOWN_MARKER_SEARCH
-		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder());
-		dmImf11->linkToParentSensorSpec(senPtr11);
+		//FIXME: don't hardcode marker size
+		boost::shared_ptr<DataManager_ImageMarkerFinder> dmImf11(new DataManager_ImageMarkerFinder(.207));
+		dmImf11->linkToParentSensorPinhole(senPtr11);
 		dmImf11->linkToParentMapManager(mmMarker);
 #endif // KNOWN_MARKER_SEARCH
 

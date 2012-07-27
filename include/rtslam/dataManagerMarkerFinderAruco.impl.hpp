@@ -57,27 +57,25 @@ namespace jafar {
 			cv2typedVec(cvVec, vecRange, size);
 		}
 
-		// FIXME: don't hardcode marker size / cam param file
-		template<class RawSpec, class SensorSpec>
-		DataManagerMarkerFinderAruco<RawSpec, SensorSpec>::
-		DataManagerMarkerFinderAruco()
-			: markerSize(.207)
-		{
-			camParams.readFromXMLFile("/mnt/ssd/AR/aruco/build/Linux-x86_64/debug/Flea3_intrinsics.yml");
-			//camParams.resize(TheInputImage.size());
-		}
+		template<class RawSpec>
+		DataManagerMarkerFinderAruco<RawSpec>::
+		DataManagerMarkerFinderAruco(float markerSize_)
+			: ParentClass(markerSize_),
+			  camParamsInitialized(false)
+		{}
 
-		template<class RawSpec, class SensorSpec>
-		MarkerPtr DataManagerMarkerFinderAruco<RawSpec, SensorSpec>::
+		template<class RawSpec>
+		MarkerPtr DataManagerMarkerFinderAruco<RawSpec>::
 		detectMarker(raw_ptr_t data)
 		{
+			if (not camParamsInitialized) setCamParams();
 			MarkerPtr outMarkerP;
 
 			boost::shared_ptr<RawSpec> rawData = SPTR_CAST<RawSpec>(data);
 			const cv::Mat& image = rawData->img->mat();
 			std::vector<aruco::Marker> arucoMarkers;
 
-			mDetector.detect(image, arucoMarkers, camParams, markerSize);
+			mDetector.detect(image, arucoMarkers, camParams, this->markerSize);
 
 			if (not arucoMarkers.empty() and camParams.isValid())
 			{
@@ -90,6 +88,36 @@ namespace jafar {
 				outMarkerP->quaternion() = quaternion::v2q(rvec);
  			}
 			return outMarkerP;
+		}
+
+		template<class RawSpec>
+		void DataManagerMarkerFinderAruco<RawSpec>::
+		setCamParams()
+		{
+			SensorImageParameters& rtslamParams = this->sensorPinhole().params;
+
+			cv::Mat cameraMatrix = cv::Mat::eye(3,3,CV_32FC1);
+			// | focalX   0    centerX |
+			// |    0   focalY centerY |
+			// |    0     0        1   |
+
+			cameraMatrix.at<float>(0, 2) = rtslamParams.intrinsic[0]; // centerX
+			cameraMatrix.at<float>(1, 2) = rtslamParams.intrinsic[1]; // centerY
+			cameraMatrix.at<float>(0, 0) = rtslamParams.intrinsic[2]; // focalX
+			cameraMatrix.at<float>(1, 1) = rtslamParams.intrinsic[3]; // focalY
+
+			cv::Mat distCoeffs = cv::Mat::zeros(4,1,CV_32FC1);
+
+			distCoeffs.at<float>(0) = rtslamParams.distortion[0];
+			distCoeffs.at<float>(1) = rtslamParams.distortion[1];
+			// rtslam has no tangential distortion
+			distCoeffs.at<float>(2) = 0.0f;
+			distCoeffs.at<float>(3) = 0.0f;
+
+			camParams.setParams(cameraMatrix, distCoeffs,
+					cv::Size(rtslamParams.width, rtslamParams.height));
+
+			camParamsInitialized = true;
 		}
 
 

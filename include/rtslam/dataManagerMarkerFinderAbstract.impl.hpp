@@ -11,8 +11,10 @@
 namespace jafar {
 	namespace rtslam {
 		DataManagerMarkerFinderAbstract::
-		DataManagerMarkerFinderAbstract(size_t maxMarkersPerId_)
-			: maxMarkersPerId(maxMarkersPerId_)
+		DataManagerMarkerFinderAbstract(float markerSize_,
+				size_t maxMarkersPerId_)
+			: markerSize(markerSize_),
+			  maxMarkersPerId(maxMarkersPerId_)
 		{}
 
 		void DataManagerMarkerFinderAbstract::
