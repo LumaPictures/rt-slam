@@ -1910,6 +1910,7 @@ int main(int argc, char* const* argv)
 	intOpts[iCamera] = 1;
 	floatOpts[fFreq] = UNSET_FREQ;
 	floatOpts[fShutter] = 0.0;
+	floatOpts[fMarkerSize] = .207;
 	strOpts[sDataPath] = ".";
 	strOpts[sConfigSetup] = "#!@";
 	strOpts[sConfigEstimation] = "data/estimation.cfg";
