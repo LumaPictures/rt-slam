@@ -1074,7 +1074,7 @@ namespace display {
 //		int ierr = lapack::syev( 'V', s_A, lambda, lapack::optimal_workspace() );
 		jblas::mat_column_major U(3, 3);
 		jblas::mat_column_major VT(3, 3);
-//		int ierr = lapack::gesdd('A',A,lambda,U,VT);
+		lapack::gesdd('A',A,lambda,U,VT);
 		A = U;
 
 		double dx = lambda(0) < 1e-6 ? 1e-3 : sqrt(lambda(0));
