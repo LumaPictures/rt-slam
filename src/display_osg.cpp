@@ -52,7 +52,8 @@ namespace display {
 	// [numVertsInFace1, indexOfFace1Vert1, indexOfFace1Vert2, indexOfFace1Vert3, ...,
 	//  numVertsInFace2, indexOfFace2Vert1, indexOfFace2Vert2, indexOfFace2Vert3, ...
 	// ]
-	osg::ref_ptr<osg::Geometry> makeGeoFromVertFaceLists(std::vector<double> vertPositions,
+	osg::ref_ptr<osg::Geometry> makeGeoFromVertFaceLists(
+			std::vector<double> vertPositions,
 			std::vector<unsigned int> faceIndices,
 			osg::Vec4 color=osg::Vec4(.5,.5,.5,1.0)  )
 	{
@@ -145,7 +146,8 @@ namespace display {
 	osg::ref_ptr<osg::StateSet> lineSS;
 
 	// Utility method to make a line segment
-	osg::ref_ptr<osg::Geometry> makeLineGeo(osg::Vec3Array& verts_,
+	osg::ref_ptr<osg::Geometry> makeLineGeo(
+			osg::Vec3Array& verts_,
 			const osg::Vec4 color = osg::Vec4(0,0,0,1.0),
 			const osg::Object::DataVariance variance = osg::Object::UNSPECIFIED,
 			bool allocateNewVertArray=true)
@@ -634,7 +636,9 @@ namespace display {
 		OsgViewerHolder(_viewer)
 	{
 		group = new osg::Group;
-		group->setName("OsgGeoHolderGroup");
+#ifndef JFR_NDEBUG
+		group->setName(numberedGroupName());
+#endif // JFR_NDEBUG
 		group->setDataVariance(osg::Object::DYNAMIC);
 		viewerOsg->root()->addChild(group);
 	}
@@ -657,7 +661,21 @@ namespace display {
 		refreshShapes();
 	}
 
+	std::string OsgGeoHolder::className()
+	{
+		return typeid(*this).name();
+	}
+
 	// Some utility funcs
+	std::string OsgGeoHolder::numberedGroupName()
+	{
+		std::ostringstream oss;
+		static size_t classCount = 0;
+		++classCount;
+		oss << className() << "_GeoHolderGroup_" << classCount;
+		return oss.str();
+	}
+
 	unsigned int OsgGeoHolder::numShapes()
 	{
 		return group->getNumChildren();
@@ -669,11 +687,24 @@ namespace display {
 	}
 
 	template<class TransformType>
-	osg::ref_ptr<TransformType> OsgGeoHolder::makeTransformForDrawable(osg::ref_ptr<osg::Drawable> drawable,
-			bool addToGroup)
+	osg::ref_ptr<TransformType> OsgGeoHolder::makeTransformForDrawable(
+			osg::ref_ptr<osg::Drawable> drawable,
+			bool addToGroup,
+			const std::string& name)
 	{
 		osg::ref_ptr<TransformType> trans = new TransformType;
 		osg::Geode* geode = new osg::Geode();
+
+		if (name.length())
+		{
+			std::stringstream oss;
+			oss << name << "Transform";
+			trans->setName(oss.str());
+
+			oss.str("");
+			oss << name << "Geode";
+			geode->setName(oss.str());
+		}
 
 		// Make transfrom variance dynamic - if we're making a transform,
 		// likely because we want to move it around
@@ -690,16 +721,20 @@ namespace display {
 		return trans;
 	}
 
-	osg::ref_ptr<osg::PositionAttitudeTransform> OsgGeoHolder::makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo,
-			bool addToGroup)
+	osg::ref_ptr<osg::PositionAttitudeTransform> OsgGeoHolder::makePATransformForDrawable(
+			osg::ref_ptr<osg::Drawable> geo,
+			bool addToGroup,
+			const std::string& name)
 	{
-		return makeTransformForDrawable<osg::PositionAttitudeTransform>(geo, addToGroup);
+		return makeTransformForDrawable<osg::PositionAttitudeTransform>(geo, addToGroup, name);
 	}
 
-	osg::ref_ptr<osg::MatrixTransform> OsgGeoHolder::makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo,
-			bool addToGroup)
+	osg::ref_ptr<osg::MatrixTransform> OsgGeoHolder::makeMTransformForDrawable(
+			osg::ref_ptr<osg::Drawable> geo,
+			bool addToGroup,
+			const std::string& name)
 	{
-		return makeTransformForDrawable<osg::MatrixTransform>(geo, addToGroup);
+		return makeTransformForDrawable<osg::MatrixTransform>(geo, addToGroup, name);
 	}
 
 
@@ -781,7 +816,10 @@ namespace display {
 				osg::Vec3(0,1,0), osg::Vec4(0,.5,0,1), osg::Object::STATIC);
 		osg::ref_ptr<osg::Geometry> zAxis = makeLineGeo(osg::Vec3(0,0,0),
 				osg::Vec3(0,0,1), osg::Vec4(0,0,.5,1), osg::Object::STATIC);
-		osg::ref_ptr<osg::PositionAttitudeTransform> trans = makePATransformForDrawable(xAxis);
+		xAxis->setName("xAxis");
+		yAxis->setName("yAxis");
+		zAxis->setName("zAxis");
+		osg::ref_ptr<osg::PositionAttitudeTransform> trans = makePATransformForDrawable(xAxis, true, "CoordAxes");
 		osg::Geode& geode = *(trans->getChild(0)->asGeode());
 		geode.addDrawable(yAxis);
 		geode.addDrawable(zAxis);
@@ -831,7 +869,7 @@ namespace display {
 		pathGeo = makeLineGeo(*pathPts, osg::Vec4f(0,1,0,1), osg::Object::DYNAMIC,
 				false);
 		pathIndices = dynamic_cast<osg::DrawElementsUInt*>(pathGeo->getPrimitiveSet(0));
-		osg::ref_ptr<osg::PositionAttitudeTransform> pathGeoTrans = makePATransformForDrawable(pathGeo);
+		osg::ref_ptr<osg::PositionAttitudeTransform> pathGeoTrans = makePATransformForDrawable(pathGeo, true, "RobotPath");
 
 		// If the cam is tracking the robot, don't want to show the robot geo or the path...
 		if(viewerOsg->camTrackRobotId == slamRob_->id())
@@ -939,6 +977,13 @@ namespace display {
 		cov_ = slamLmk_->state.P();
 	}
 
+	std::string LandmarkOsg::landmarkName()
+	{
+		std::stringstream oss;
+		oss << "Landmark_" << id_;
+		return oss.str();
+	}
+
 	void LandmarkOsg::setSphereColor(osg::ref_ptr<osg::Group> transform, double r, double g, double b, double a)
 	{
 		osg::ShapeDrawable* shape;
@@ -979,7 +1024,18 @@ namespace display {
 		// TODO: make less dense spheres (maybe don't use ShapeDrawable at all?)
 		// perhaps check out osgworks...
 		osg::ShapeDrawable* sphereShape = new osg::ShapeDrawable(new osg::Sphere(osg::Vec3(0,0,0), 1.0));
-		return makeMTransformForDrawable(sphereShape);
+
+#ifndef JFR_NDEBUG
+		std::stringstream oss;
+		oss << landmarkName() << "_SphereShapeDrawable";
+		sphereShape->setName(oss.str());
+
+		oss.str("");
+		oss << landmarkName() << "_SphereTransform";
+		return makeMTransformForDrawable(sphereShape, true, oss.str());
+#else // JFR_NDEBUG
+		return makeMTransformForDrawable(sphereShape, true);
+#endif
 	}
 
 	osg::ref_ptr<osg::PositionAttitudeTransform> LandmarkOsg::makeLine()
@@ -989,8 +1045,20 @@ namespace display {
 		osg::Vec3 p1(0,0,0);
 		osg::Vec3 p2(0,0,0);
 
-		osg::ref_ptr<osg::Geometry> lineGeo = makeLineGeo(p1, p2, color, osg::Object::DYNAMIC);
-		return makePATransformForDrawable(lineGeo);
+		osg::ref_ptr<osg::Geometry> lineGeo = makeLineGeo(p1, p2, color,
+				osg::Object::DYNAMIC);
+
+#ifndef JFR_NDEBUG
+		std::stringstream oss;
+		oss << landmarkName() << "_LineGeo";
+		lineGeo->setName(oss.str());
+
+		oss.str("");
+		oss << landmarkName() << "_LineTransform";
+		return makePATransformForDrawable(lineGeo, true, oss.str());
+#else // JFR_NDBEUG
+		return makePATransformForDrawable(lineGeo, true);
+#endif // JFR_NDEBUG
 	}
 
 	void LandmarkOsg::getEllipsoidPose(jblas::vec3 _x, jblas::sym_mat33 _xCov,
@@ -1006,7 +1074,7 @@ namespace display {
 //		int ierr = lapack::syev( 'V', s_A, lambda, lapack::optimal_workspace() );
 		jblas::mat_column_major U(3, 3);
 		jblas::mat_column_major VT(3, 3);
-//		int ierr = lapack::gesdd('A',A,lambda,U,VT);
+		lapack::gesdd('A',A,lambda,U,VT);
 		A = U;
 
 		double dx = lambda(0) < 1e-6 ? 1e-3 : sqrt(lambda(0));

@@ -180,6 +180,7 @@ namespace display {
 			OsgGeoHolder(ViewerAbstract *_viewer);
 			virtual ~OsgGeoHolder();
 			void render();
+			std::string className();
 
 		protected:
 			// Override these in derived classes!
@@ -188,14 +189,24 @@ namespace display {
 			virtual void refreshShapes() = 0;
 
 			// Some utility funcs
+			std::string numberedGroupName();
 			unsigned int numShapes();
 			void clearShapes();
 
 			template<class TransformType>
-			osg::ref_ptr<TransformType> makeTransformForDrawable(osg::ref_ptr<osg::Drawable> geo, bool addToGroup=true);
+			osg::ref_ptr<TransformType> makeTransformForDrawable(
+					osg::ref_ptr<osg::Drawable> geo,
+					bool addToGroup=true,
+					const std::string& name="");
 
-			osg::ref_ptr<osg::PositionAttitudeTransform> makePATransformForDrawable(osg::ref_ptr<osg::Drawable> geo, bool addToGroup=true);
-			osg::ref_ptr<osg::MatrixTransform> makeMTransformForDrawable(osg::ref_ptr<osg::Drawable> geo, bool addToGroup=true);
+			osg::ref_ptr<osg::PositionAttitudeTransform> makePATransformForDrawable(
+					osg::ref_ptr<osg::Drawable> geo,
+					bool addToGroup=true,
+					const std::string& name="");
+			osg::ref_ptr<osg::MatrixTransform> makeMTransformForDrawable(
+					osg::ref_ptr<osg::Drawable> geo,
+					bool addToGroup=true,
+					const std::string& name="");
 	};
 
 	class WorldOsg : public WorldDisplay, public OsgViewerHolder
@@ -270,6 +281,7 @@ namespace display {
 		public:
 			LandmarkOsg(ViewerAbstract *_viewer, rtslam::LandmarkAbstract *_slamLmk, MapOsg *_dispMap);
 			void bufferize();
+			std::string landmarkName();
 
 		protected:
 			virtual bool needCreateShapes();
