@@ -11,6 +11,8 @@
 #include <cmath>
 #include <cstdlib>
 
+#include <boost/filesystem.hpp>
+
 #include <osgDB/ReadFile>
 #include <osgGA/TrackballManipulator>
 #include <osgGA/TerrainManipulator>
@@ -25,6 +27,8 @@
 
 #include "rtslam/ahpTools.hpp"
 #include "jmath/angle.hpp"
+
+namespace bfs = boost::filesystem;
 
 namespace jafar {
 namespace rtslam {
@@ -128,19 +132,23 @@ namespace display {
 		// BSD with procfs: readlink /proc/curproc/file
 		// Windows: GetModuleFileName() with hModule = NULL
 		//
-		char* jafarDir = std::getenv("JAFAR_DIR");
-		if (not jafarDir)
+		char* jafarDirEnv = std::getenv("JAFAR_DIR");
+		bfs::path geoPath;
+
+		// first set to jafarDir
+		if (jafarDirEnv)
 		{
-			JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "JAFAR_DIR environment variable not set");
+			geoPath = jafarDirEnv;
 		}
-		std::string path = jafarDir;
-		char lastChar = path[path.size()-1];
-		if (lastChar != '/' and lastChar != '\\')
+		else
 		{
-			path += "/";
+			// Assuming this file is JAFAR_DIR/modules/rtslam/src/display_osg.cpp,
+			// we want __FILE__/../../../..
+			geoPath = bfs::path(__FILE__).parent_path().parent_path().parent_path().parent_path();
 		}
-		path += "modules/rtslam/data/models/" + filename;
-		return osgDB::readNodeFile(path)->asGroup();
+		geoPath = geoPath / "modules" / "rtslam" / "data" / "models" / filename;
+		geoPath.make_preferred();
+		return osgDB::readNodeFile(geoPath.native())->asGroup();
 	}
 
 	osg::ref_ptr<osg::StateSet> lineSS;
