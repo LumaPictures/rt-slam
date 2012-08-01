@@ -65,7 +65,7 @@ namespace jafar {
 
 				virtual size_t reparamSize() {return size();}
 
-				virtual jblas::vec3 center() { return ublas::subrange(state.x(), 0, 3); }
+				virtual jblas::vec3 center() const { return ublas::subrange(state.x(), 0, 3); }
 
 				virtual double uncertainty()
 				{

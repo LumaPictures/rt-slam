@@ -65,7 +65,7 @@ namespace jafar {
 
         virtual size_t reparamSize() {/*return size();*/ vec6 v; return v.size();} // TODO clean up
 
-				virtual jblas::vec3 center() {
+				virtual jblas::vec3 center() const {
 					vec6 euc = reparametrize_func(state.x());
 					return (ublas::subrange(euc,0,3)+ublas::subrange(euc,3,6))/2; // FIXME maybe better with current extremities ; where are they?
 				}

@@ -124,7 +124,7 @@ namespace jafar {
 				/**
 				 * Position x,y,z of the center of the landmark
 				 */
-				virtual jblas::vec3 center() = 0;
+				virtual jblas::vec3 center() const = 0;
 
 				/**
 				 * The max uncertainty of the landmark position (3 sigma in meters)

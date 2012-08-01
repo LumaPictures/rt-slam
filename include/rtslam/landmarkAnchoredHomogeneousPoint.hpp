@@ -62,7 +62,7 @@ namespace jafar {
 
 				virtual size_t reparamSize() {return LandmarkEuclideanPoint::size();}
 
-				virtual jblas::vec3 center() { return reparametrize_func(state.x()); }
+				virtual jblas::vec3 center() const { return reparametrize_func(state.x()); }
 
 				virtual double uncertainty()
 				{
