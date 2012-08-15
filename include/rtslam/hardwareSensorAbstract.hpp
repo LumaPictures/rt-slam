@@ -198,12 +198,11 @@ class HardwareSensorAbstract
 		friend class rtslam::SensorExteroAbstract;
 };
 
-
-class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>
+class ReadingAbstract
 {
 	public:
 		/**
-		 * @brief enumerates the different quantities that a proprioceptive sensor can provide
+		 * @brief enumerates the different quantities that this reading provides
 		 * @param qPos position (x y z)
 		 * @param qOriQuat orientation as a quaternion (qx qy qz qw)
 		 * @param qOriEuler orientation as euler angles (ex ey ez)
@@ -216,6 +215,7 @@ class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>
 		 * @param qBundleobs observation of the direction between the robot and some known position (landmark, robot, ...) (x y z ux uy uz).
 		 *                   Note that the observation can be made by the robot itself or by something else and sent to the robot, but
 		 *                   the convention is that in any case (ux,uy,uz) must be oriented from the robot.
+		 * @param qMag magnetic field (?in sensor's frame?) (mx my mz)
 		 */
 		enum Quantity { qPos, qOriQuat, qOriEuler, qVel, qAbsVel, qAngVel, qAbsAngVel, qAcc, qAbsAcc, qBundleobs, qMag, qNQuantity };
 		static const int QuantityDataSizes[qNQuantity];
@@ -227,21 +227,45 @@ class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>
 		size_t obs_size;
 		CovType cov_type;
 	protected:
-		RawVec reading;
 		void addQuantity(Quantity quantity) { quantities[quantity] = data_size+1; data_size += QuantityDataSizes[quantity]; obs_size += QuantityObsSizes[quantity]; }
 		void clearQuantities() { for(int i = 0; i < qNQuantity; ++i) quantities[i] = -1; data_size = obs_size = 0; }
 	public:
-		HardwareSensorProprioAbstract(kernel::VariableCondition<int> *condition, unsigned bufferSize, CovType covType):
-			HardwareSensorAbstract<RawVec>(condition, bufferSize), cov_type(covType) { clearQuantities(); }
-		size_t dataSize() { return data_size; } /// number of measure variables provided (without timestamp and variance)
-		size_t obsSize() { return obs_size; } /// number of observation variables among measure variables (that can be predicted from the robot state and the rest of the measure variables)
-		size_t readingSize() { switch (cov_type) { case ctNone: return 1+data_size; case ctVar: return 1+data_size*2; case ctFull: return 1+data_size*(data_size+3)/2; default: return 0; } } /// the size of a reading vector that stores everything
-		size_t getQuantity(Quantity quantity) { return quantities[quantity]; } /// get index of quantity, -1 if not measured
-		CovType covType() { return cov_type; } /// does this hardware sensor return full covariance matrices with data?
+		RawVec reading;
+
+		ReadingAbstract(CovType covType) :
+			cov_type(covType) { clearQuantities(); }
+		size_t dataSize() const { return data_size; } /// number of measure variables provided (without timestamp and variance)
+		size_t obsSize() const { return obs_size; } /// number of observation variables among measure variables (that can be predicted from the robot state and the rest of the measure variables)
+		size_t readingSize() const { switch (cov_type) { case ctNone: return 1+data_size; case ctVar: return 1+data_size*2; case ctFull: return 1+data_size*(data_size+3)/2; default: return 0; } } /// the size of a reading vector that stores everything
+		size_t getQuantity(Quantity quantity) const { return quantities[quantity]; } /// get index of quantity, -1 if not measured
+		ublas::vector_range<jblas::vec> getQuantityData(Quantity quantity)
+		{
+			size_t startIndex = getQuantity(quantity);
+			return ublas::subrange(reading.data, startIndex, startIndex + QuantityDataSizes[quantity]);
+		}
+		ublas::vector_range<const jblas::vec> getQuantityData(Quantity quantity) const
+		{
+			size_t startIndex = getQuantity(quantity);
+			return ublas::subrange(reading.data, startIndex, startIndex + QuantityDataSizes[quantity]);
+		}
+		CovType covType() const { return cov_type; } /// does this hardware sensor return full covariance matrices with data?
 		void initData() {
+			reading.resize(readingSize());
+		}
+};
+
+class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>, public ReadingAbstract
+{
+	public:
+		HardwareSensorProprioAbstract(kernel::VariableCondition<int> *condition,
+				unsigned bufferSize, CovType covType):
+			HardwareSensorAbstract<RawVec>(condition, bufferSize), ReadingAbstract(covType)
+		{}
+
+		void initData() {
+			ReadingAbstract::initData();
 			int size = readingSize();
 			for(int i = 0; i < bufferSize; ++i) { buffer[i].resize(size); buffer(i).data(0) = -99.; }
-			reading.resize(size);
 		}
 		/**
 		This function must return the indices of values returned by acquireReadings that represent
@@ -254,6 +278,7 @@ class HardwareSensorProprioAbstract: public HardwareSensorAbstract<RawVec>
 		the increment of a physical quantity since last reading (odometry, ...)
 		*/
 		virtual jblas::ind_array incrementValues() = 0;
+
 };
 
 class HardwareSensorExteroAbstract: public HardwareSensorAbstract<raw_ptr_t>
@@ -265,6 +290,7 @@ class HardwareSensorExteroAbstract: public HardwareSensorAbstract<raw_ptr_t>
 	
 };
 
+typedef boost::shared_ptr<hardware::ReadingAbstract> reading_ptr_t;
 typedef boost::shared_ptr<hardware::HardwareSensorExteroAbstract> hardware_sensorext_ptr_t;
 typedef boost::shared_ptr<hardware::HardwareSensorProprioAbstract> hardware_sensorprop_ptr_t;
 
