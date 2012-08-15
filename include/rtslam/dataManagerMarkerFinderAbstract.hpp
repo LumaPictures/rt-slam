@@ -16,6 +16,7 @@
 
 #include "rtslam/dataManagerAbstract.hpp"
 #include "rtslam/observationAbstract.hpp"
+#include "rtslam/hardwareSensorAbstract.hpp"
 
 namespace jafar {
 	namespace rtslam {
@@ -25,36 +26,48 @@ namespace jafar {
 
 		@ingroup rtslam
 		*/
-		struct Marker
+		class Marker : public hardware::ReadingAbstract
 		{
-			typedef ublas::vector_range<jblas::vec7> range_type;
-			Marker()
-			{
-				pose.clear();
-				pose[3] = 1;
-			}
+			public:
+				typedef ublas::vector_range<jblas::vec> range_type;
+				Marker(int id_=-1, CovType covType=ctNone) :
+					ReadingAbstract(covType), id(id_)
+				{
+					addQuantity(qPos);
+					addQuantity(qOriQuat);
+					initData();
+				}
 
-			int id;
-			// Jafar standard translation/quat - ie tx,ty,tz,qw,qx,qy,qz
-			jblas::vec7 pose;
+				int id;
 
-			range_type
-			translation()
-			{
-				return subrange(pose, 0,3);
-			}
+				range_type
+				translation()
+				{
+					return getQuantityData(qPos);
+				}
 
-			range_type
-			quaternion()
-			{
-				return subrange(pose, 3,7);
-			}
+				range_type
+				quaternion()
+				{
+					return getQuantityData(qOriQuat);
+				}
+
+				range_type
+				pose()
+				{
+					return ublas::subrange(reading.data, getQuantity(qPos),
+							getQuantity(qOriQuat) + QuantityDataSizes[qOriQuat]);
+				}
+
+			protected:
+				void initData()
+				{
+					ReadingAbstract::initData();
+					reading.data[getQuantity(qOriQuat) + 3] = 1;
+				}
 		};
 
 		typedef boost::shared_ptr<Marker> MarkerPtr;
-		typedef std::deque<MarkerPtr> MarkerList;
-		typedef std::map<int, MarkerList > IdMarkerListMap;
-		typedef std::map<int, MarkerPtr> IdMarkerMap;
 
 		class DataManagerMarkerFinderAbstract;
 		typedef boost::shared_ptr<DataManagerMarkerFinderAbstract> data_man_markerfinder_ptr_t;
@@ -66,9 +79,7 @@ namespace jafar {
 		*/
 		class DataManagerMarkerFinderAbstract: public DataManagerAbstract {
 			public: // public interface
-				static const size_t DEFAULT_MAX_MARKERS = 10;
-				DataManagerMarkerFinderAbstract(float markerSize_,
-						size_t maxMarkersPerId_=DEFAULT_MAX_MARKERS);
+				DataManagerMarkerFinderAbstract(float markerSize_);
 
 				void processKnown(raw_ptr_t data, double date_limit = -1.)
 				{}
@@ -79,22 +90,14 @@ namespace jafar {
 				// convert this over to return a Marker list
 				virtual MarkerPtr detectMarker(raw_ptr_t data) = 0;
 
-				MarkerPtr markerPose(int id);
-
 			protected: // main data members
 				float markerSize;
-				IdMarkerListMap markerObservations;
-				IdMarkerMap markerObsSums;
-				size_t maxMarkersPerId;
-
-
-			protected: // parameters
 
 			public: // getters and setters
+				float getMarkerSize() { return markerSize; }
 
 			protected: // helper functions
-				void addMarker(MarkerPtr newMarker);
-				MarkerPtr getMarkerSum(int id, bool create=false);
+				void setSensorPoseFromMarker(MarkerPtr newMarker);
 
 		};
 
@@ -111,6 +114,12 @@ namespace jafar {
 					: DataManagerMarkerFinderAbstract(markerSize_)
 				{}
 		};
+
+		// this func separated from setSensorPoseFromMarker to abstract
+		// it, so that eventually code in sensorAbsloc can be converted to
+		// use it (if/when, that is done, this func should probably be moved
+		// in there)
+		void updatePoseFromAbsReading(SensorAbstract& sensor, const hardware::ReadingAbstract& reading);
 	}
 }
 

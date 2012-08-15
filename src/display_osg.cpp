@@ -781,13 +781,9 @@ namespace display {
 #if KNOWN_MARKER_SEARCH
 		if (markerFinder)
 		{
-			// FIXME - make the marker id a config parameter
-			static const int markerId = 993;
-			jblas::vec7 sensorPose = markerFinder->sensor().globalPose();
-			jblas::vec7 pose = quaternion::composeFrames(sensorPose,
-					markerFinder->markerPose(markerId)->pose);
-			modelBasePose.setTrans(pose[0], pose[1], pose[2]);
-			modelBasePose.setRotate(osg::Quat(pose[4], pose[5], pose[6], pose[3]));
+			// FIXME - make the marker id + position a configurable parameter
+			modelBasePose.setTrans(0, 0, 0);
+			modelBasePose.setRotate(osg::Quat(1, 0, 0, 0));
 		}
 #endif // KNOWN_MARKER_SEARCH
 	}
