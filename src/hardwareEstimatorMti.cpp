@@ -95,6 +95,8 @@ namespace hardware {
 #ifdef HAVE_MTI
 			mti = new MTI(device.c_str(), MTI_OPMODE_CALIBRATED, MTI_OPFORMAT_MAT, MTI_SYNCOUTMODE_DISABLED);
 
+			if (not mti->is_connected()) JFR_ERROR(RtslamException, RtslamException::GENERIC_ERROR, "HardwareSensorMti: failed to connect to mti.");
+
 			INERTIAL_CONFIG config;
 			// default syncout pin modes and settings
 			config.syncOutMode          = MTI_SYNCOUTMODE_PULSE;
