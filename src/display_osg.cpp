@@ -783,7 +783,7 @@ namespace display {
 		{
 			// FIXME - make the marker id + position a configurable parameter
 			modelBasePose.setTrans(0, 0, 0);
-			modelBasePose.setRotate(osg::Quat(1, 0, 0, 0));
+			modelBasePose.setRotate(osg::Quat(0, 0, 0, 1));
 		}
 #endif // KNOWN_MARKER_SEARCH
 	}
