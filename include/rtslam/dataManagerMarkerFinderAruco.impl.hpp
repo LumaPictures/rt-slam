@@ -75,7 +75,7 @@ namespace jafar {
 			const cv::Mat& image = rawData->img->mat();
 			std::vector<aruco::Marker> arucoMarkers;
 
-			mDetector.detect(image, arucoMarkers, camParams, this->markerSize);
+			mDetector.detect(image, arucoMarkers, camParams, this->markerSize, false);
 
 			if (not arucoMarkers.empty() and camParams.isValid())
 			{

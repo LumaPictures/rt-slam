@@ -32,6 +32,7 @@ namespace jafar {
 				typedef DataManagerMarkerFinder<RawSpec> ParentClass;
 
 				DataManagerMarkerFinderAruco(float markerSize_);
+				virtual ~DataManagerMarkerFinderAruco() {}
 
 				// TODO: eventually, support multiple-marker tracking, and
 				// convert this over to return a Marker list
